@@ -37,11 +37,14 @@ function parseMerchantTransactionId(value?: string): TransactionContext {
     });
   }
 
-  const [planId, userId] = decoded.split('.');
+  // Format: userId.planId
+  const parts = decoded.split('.');
+  const userId = parts[0] || undefined;
+  const planId = parts[1] || undefined;
 
   return {
-    planId: planId || undefined,
-    userId: userId || undefined,
+    planId,
+    userId,
   };
 }
 
@@ -110,8 +113,23 @@ export class ClickService {
     const context = parseMerchantTransactionId(merchantTransId);
 
     // Click integration: merchant_trans_id formatida userId.planId keladi
-    const userId = context.userId;
-    const planId = context.planId;
+    // param2 yoki additional_param3 orqali planId ham kelishi mumkin (backup)
+    let userId = context.userId;
+    let planId = context.planId;
+    
+    // Agar context'dan topilmasa, param2 yoki merchant_trans_id'ning o'zidan olish
+    if (!userId) {
+      userId = merchantTransId;
+    }
+    
+    if (!planId && clickReqBody.param2) {
+      planId = clickReqBody.param2;
+    }
+    
+    if (!planId && clickReqBody.additional_param3) {
+      planId = clickReqBody.additional_param3;
+    }
+    
     const merId = merchantTransId;
     const amount = clickReqBody.amount;
 
@@ -119,6 +137,8 @@ export class ClickService {
       merchantTransId,
       userId,
       planId,
+      param2: clickReqBody.param2,
+      additional_param3: clickReqBody.additional_param3,
       context
     });
 
@@ -130,6 +150,17 @@ export class ClickService {
       return {
         error: ClickError.UserNotFound,
         error_note: 'Invalid userId',
+      };
+    }
+
+    if (!planId) {
+      logger.error('Click prepare received without planId', {
+        merchant_trans_id: merchantTransId,
+        context,
+      });
+      return {
+        error: ClickError.UserNotFound,
+        error_note: 'Invalid planId',
       };
     }
 
@@ -177,6 +208,10 @@ export class ClickService {
     const plan = await this.planRepository.findOne({ where: { id: planId } });
 
     if (!plan) {
+      logger.error('Plan not found in Click prepare', {
+        planId,
+        userId,
+      });
       return {
         error: ClickError.UserNotFound,
         error_note: 'Invalid planId',
@@ -184,6 +219,13 @@ export class ClickService {
     }
 
     // Click da summa integer bo'lishi kerak (5555), Payme da decimal (5555.00)
+    logger.info('💰 Click amount validation (prepare)', {
+      clickAmount: amount,
+      clickAmountInt: parseInt(`${amount}`),
+      planPrice: plan.price,
+      planPriceInt: parseInt(`${plan.price}`),
+    });
+
     if (parseInt(`${amount}`) !== parseInt(`${plan.price}`)) {
       logger.warn('Amount mismatch in Click prepare', {
         clickAmount: parseInt(`${amount}`),
@@ -241,8 +283,23 @@ export class ClickService {
     const context = parseMerchantTransactionId(merchantTransId);
 
     // Click integration: merchant_trans_id formatida userId.planId keladi
-    const userId = context.userId;
-    const planId = context.planId;
+    // param2 yoki additional_param3 orqali planId ham kelishi mumkin (backup)
+    let userId = context.userId;
+    let planId = context.planId;
+    
+    // Agar context'dan topilmasa, param2 yoki merchant_trans_id'ning o'zidan olish
+    if (!userId) {
+      userId = merchantTransId;
+    }
+    
+    if (!planId && clickReqBody.param2) {
+      planId = clickReqBody.param2;
+    }
+    
+    if (!planId && clickReqBody.additional_param3) {
+      planId = clickReqBody.additional_param3;
+    }
+    
     const merId = merchantTransId;
     const prepareId = clickReqBody.merchant_prepare_id;
     const transId = clickReqBody.click_trans_id + '';
@@ -253,6 +310,8 @@ export class ClickService {
       merchantTransId,
       userId,
       planId,
+      param2: clickReqBody.param2,
+      additional_param3: clickReqBody.additional_param3,
       context
     });
 
