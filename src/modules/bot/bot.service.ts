@@ -238,9 +238,9 @@ export class BotService {
       case 'gender': {
         const gender = (parts[1] as TrendGender) ?? 'all';
         flow.payload.targetGender = gender;
-        flow.step = 2;
+        flow.step = 3;
         await ctx.editMessageText(
-          '🍼 Tugilish sanasini kiriting. Format: <b>YYYY-MM-DD</b>.\nAgar aniq bo\'lmasa, <i>skip</i> deb yozing.',
+          '👪 Familiyangizni kiriting yoki <i>skip</i> deb yozing.',
           { parse_mode: 'HTML' },
         );
         await ctx.answerCallbackQuery();
@@ -593,9 +593,18 @@ export class BotService {
       .row()
       .text('🏠 Menyu', 'main:menu');
 
+    const message = 
+      "✨ <b>Farzandingizga ism tanlashda ikkilanyapsizmi?</b>\n\n" +
+      "🎯 Biz sizga yordam beramiz! Shaxsiy tavsiya generatorimiz:\n\n" +
+      "🧬 Ota-ona ismlaridan ilhom oladi\n" +
+      "💎 Sizning qadriyatlaringizga mos keladi\n" +
+      "📊 Zamonaviy trendlarni hisobga oladi\n" +
+      "🌟 Mukammal ma'noli ismlarni taklif qiladi\n\n" +
+      "Qaysi jins uchun ism izlayotganingizni belgilang:";
+
     await this.safeEditOrReply(
       ctx,
-      '🎯 Shaxsiy tavsiya generatori\n\nQaysi jins uchun ism izlayotganingizni belgilang:',
+      message,
       keyboard,
     );
   }
@@ -607,19 +616,6 @@ export class BotService {
     }
 
     switch (flow.step) {
-      case 2: {
-        if (message.toLowerCase() !== 'skip') {
-          const valid = /^\d{4}-\d{2}-\d{2}$/.test(message);
-          if (!valid) {
-            await ctx.reply('❗ Sana formati noto\'g\'ri. YYYY-MM-DD ko\'rinishida kiriting yoki skip deb yozing.');
-            return true;
-          }
-          flow.payload.birthDate = new Date(message);
-        }
-        flow.step = 3;
-        await ctx.reply('👪 Familiyangizni kiriting yoki skip deb yozing.');
-        return true;
-      }
       case 3: {
         if (message.toLowerCase() !== 'skip') {
           flow.payload.familyName = message;
@@ -736,7 +732,6 @@ export class BotService {
 
     const personaTarget: TargetGender = targetGender === 'boy' || targetGender === 'girl' ? targetGender : 'unknown';
     await this.personaService.upsertProfile(user.id, {
-      expectedBirthDate: flow.payload.birthDate as Date | undefined,
       targetGender: personaTarget,
       familyName: flow.payload.familyName as string | undefined,
       parentNames: flow.payload.parentNames as string[] | undefined,
