@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { BotModule } from './modules/bot/bot.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { ClickModule } from './modules/payment-providers/click/click.module';
 import { PaymeModule } from './modules/payment-providers/payme/payme.module';
 import { UzCardApiModule } from './modules/payment-providers/uzcard/uzcard.module';
@@ -24,6 +25,7 @@ import { dataSourceOptions } from './shared/database/typeorm.config';
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
     BotModule,
+    AdminModule,
     ClickModule,
     PaymeModule,
     UzCardApiModule,

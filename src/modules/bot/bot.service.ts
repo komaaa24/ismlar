@@ -8,6 +8,7 @@ import { NameMeaningService } from './services/name-meaning.service';
 import { NameInsightsService, QuizQuestion, TrendGender, TrendPeriod } from './services/name-insights.service';
 import { UserFavoritesService } from './services/user-favorites.service';
 import { UserPersonaService } from './services/user-persona.service';
+import { AdminService } from './services/admin.service';
 import { UserEntity } from '../../shared/database/entities/user.entity';
 import { PlanEntity } from '../../shared/database/entities/plan.entity';
 import { TargetGender } from '../../shared/database/entities/user-persona-profile.entity';
@@ -50,6 +51,7 @@ export class BotService {
     @Inject(forwardRef(() => UserFavoritesService))
     private readonly favoritesService: UserFavoritesService,
     private readonly personaService: UserPersonaService,
+    private readonly adminService: AdminService,
   ) {
     this.quizFlow = this.insightsService.getQuizFlow();
     this.registerHandlers();
@@ -62,6 +64,10 @@ export class BotService {
   private registerHandlers(): void {
     this.bot.command('start', (ctx) => this.handleStart(ctx));
     this.bot.command('admin', (ctx) => this.handleAdmin(ctx));
+    this.bot.command('stats', (ctx) => this.adminService.handleAdminCommand(ctx, 'stats'));
+    this.bot.command('grant', (ctx) => this.adminService.handleAdminCommand(ctx, 'grant'));
+    this.bot.command('revoke', (ctx) => this.adminService.handleAdminCommand(ctx, 'revoke'));
+    this.bot.command('find', (ctx) => this.adminService.handleAdminCommand(ctx, 'find'));
     this.bot.on('inline_query', (ctx) => this.handleInlineQuery(ctx));
     this.bot.on('callback_query', (ctx) => this.handleCallback(ctx));
     this.bot.on('message', (ctx) => this.handleMessage(ctx));
@@ -77,20 +83,7 @@ export class BotService {
   }
 
   private async handleAdmin(ctx: BotContext): Promise<void> {
-    const telegramId = ctx.from?.id;
-    if (!telegramId) {
-      await ctx.reply('Foydalanuvchi aniqlanmadi.');
-      return;
-    }
-
-    const totalUsers = await this.userRepository.count();
-    const activeUsers = await this.userRepository.count({ where: { isActive: true } });
-
-    await ctx.reply(
-      '📊 Bot statistikasi:\n\n' +
-      `👥 Jami foydalanuvchilar: ${totalUsers}\n` +
-      `✅ Faol foydalanuvchilar: ${activeUsers}`,
-    );
+    await this.adminService.handleAdminCommand(ctx, 'help');
   }
 
   private async handleInlineQuery(ctx: BotContext): Promise<void> {
@@ -181,15 +174,6 @@ export class BotService {
     switch (action) {
       case 'detail':
         await this.showNameDetail(ctx, slug);
-        break;
-      case 'similar':
-        await this.showSimilarNames(ctx, slug);
-        break;
-      case 'translate':
-        await this.showTranslations(ctx, slug);
-        break;
-      case 'audio':
-        await this.sendAudioPreview(ctx, slug);
         break;
       case 'trend':
         await this.showNameTrend(ctx, slug);
@@ -395,10 +379,6 @@ export class BotService {
   private buildNameDetailKeyboard(slug: string): InlineKeyboard {
     return new InlineKeyboard()
       .text('⭐ Sevimlilarga', `fav:toggle:${slug}`)
-      .text('🔁 O\'xshash', `name:similar:${slug}`)
-      .row()
-      .text('🌍 Tarjima', `name:translate:${slug}`)
-      .text('🔊 Talaffuz', `name:audio:${slug}`)
       .row()
       .text('📈 Trend', `name:trend:${slug}`)
       .text('🏠 Menyu', 'main:menu');
@@ -412,50 +392,6 @@ export class BotService {
     }
     const message = this.insightsService.formatRichMeaning(record.name, record.meaning, record);
     await this.safeEditOrReply(ctx, message, this.buildNameDetailKeyboard(record.slug));
-    await ctx.answerCallbackQuery();
-  }
-
-  private async showSimilarNames(ctx: BotContext, slug: string): Promise<void> {
-    const matches = this.insightsService.getSimilarNames(slug);
-    if (!matches.length) {
-      await ctx.answerCallbackQuery('O\'xshash ismlar topilmadi');
-      return;
-    }
-    const lines = matches.map((item, index) => {
-      const emoji = item.gender === 'girl' ? '👧' : '👦';
-      return `${index + 1}. ${emoji} <b>${item.name}</b> — ${item.meaning}`;
-    });
-    const keyboard = new InlineKeyboard();
-    matches.forEach((item) => keyboard.row().text(item.name, `name:detail:${item.slug}`));
-    keyboard.row().text('🏠 Menyu', 'main:menu');
-    await this.safeEditOrReply(ctx, `🔁 O'xshash ismlar:\n\n${lines.join('\n')}`, keyboard);
-    await ctx.answerCallbackQuery();
-  }
-
-  private async showTranslations(ctx: BotContext, slug: string): Promise<void> {
-    const translations = this.insightsService.getTranslations(slug);
-    if (!translations.length) {
-      await ctx.answerCallbackQuery('Tarjimalar mavjud emas');
-      return;
-    }
-    const record = this.insightsService.findRecordByName(slug);
-    const lines = translations.map((item) => `• ${item.language}: <b>${item.value}</b>`);
-    await this.safeEditOrReply(
-      ctx,
-      `🌍 <b>${record?.name ?? slug}</b> tarjimalari:\n\n${lines.join('\n')}`,
-      this.buildNameDetailKeyboard(slug),
-    );
-    await ctx.answerCallbackQuery();
-  }
-
-  private async sendAudioPreview(ctx: BotContext, slug: string): Promise<void> {
-    const audioUrl = this.insightsService.getAudioUrl(slug);
-    if (!audioUrl) {
-      await ctx.answerCallbackQuery('Audio mavjud emas');
-      return;
-    }
-    const record = this.insightsService.findRecordByName(slug);
-    await ctx.replyWithVoice(audioUrl, { caption: `🔊 ${record?.name ?? slug} talaffuzi` });
     await ctx.answerCallbackQuery();
   }
 
@@ -685,7 +621,12 @@ export class BotService {
 
     const targetGender = (flow.payload.targetGender as TrendGender | undefined) ?? 'all';
     const focusValues = (flow.payload.focusValues as string[] | undefined) ?? [];
-    const result = this.insightsService.buildPersonalizedRecommendations(targetGender, focusValues);
+    const parentNames = (flow.payload.parentNames as string[] | undefined) ?? [];
+    const result = this.insightsService.buildPersonalizedRecommendations(
+      targetGender, 
+      focusValues,
+      parentNames
+    );
 
     const personaTarget: TargetGender = targetGender === 'boy' || targetGender === 'girl' ? targetGender : 'unknown';
     await this.personaService.upsertProfile(user.id, {
@@ -797,8 +738,13 @@ export class BotService {
       : 'all';
 
     const focusValues = profile?.focusValues ?? [];
+    const parentNames = profile?.parentNames ?? [];
     const tags = [...(ctx.session.quizTags ?? []), ...focusValues];
-    const result = this.insightsService.buildPersonalizedRecommendations(targetGender, tags);
+    const result = this.insightsService.buildPersonalizedRecommendations(
+      targetGender, 
+      tags,
+      parentNames
+    );
 
     await this.personaService.upsertProfile(user.id, {
       targetGender: targetGender === 'boy' || targetGender === 'girl' ? targetGender : 'unknown',

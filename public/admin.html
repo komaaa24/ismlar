@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Ismlar Manosi Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .header h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        
+        .stat-card .value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .actions-panel {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .actions-panel h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .action-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .form-group label {
+            margin-bottom: 5px;
+            color: #666;
+            font-weight: bold;
+        }
+        
+        .form-group input {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 101, 101, 0.4);
+        }
+        
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #38a169;
+        }
+        
+        .transactions-table {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow-x: auto;
+        }
+        
+        .transactions-table h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        th {
+            background: #f7fafc;
+            color: #667eea;
+            font-weight: bold;
+        }
+        
+        tr:hover {
+            background: #f7fafc;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .status-paid {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .status-pending {
+            background: #feebc8;
+            color: #744210;
+        }
+        
+        .status-failed {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .message.success {
+            background: #c6f6d5;
+            color: #22543d;
+            display: block;
+        }
+        
+        .message.error {
+            background: #fed7d7;
+            color: #742a2a;
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .action-form {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎛️ Admin Panel</h1>
+            <p>Ismlar Manosi Bot - Boshqaruv Paneli</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>👥 Jami Foydalanuvchilar</h3>
+                <div class="value" id="totalUsers">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>✅ Aktiv Obunalar</h3>
+                <div class="value" id="activeSubscriptions">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>💰 Jami Daromad</h3>
+                <div class="value" id="totalRevenue">-</div>
+            </div>
+        </div>
+        
+        <div class="actions-panel">
+            <h2>⚡ Tez Amallar</h2>
+            
+            <div id="message" class="message"></div>
+            
+            <div class="action-form">
+                <div class="form-group">
+                    <label for="searchUser">Foydalanuvchi qidirish (Telegram ID)</label>
+                    <input type="text" id="searchUser" placeholder="12345678">
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button class="btn btn-primary" onclick="searchUser()">🔍 Qidirish</button>
+                </div>
+            </div>
+            
+            <div id="userInfo" style="margin-bottom: 20px; padding: 15px; background: #f7fafc; border-radius: 8px; display: none;">
+                <h3 style="color: #667eea; margin-bottom: 10px;">Foydalanuvchi Ma'lumotlari:</h3>
+                <p id="userName"><strong>Ism:</strong> -</p>
+                <p id="userStatus"><strong>Status:</strong> -</p>
+                <p id="userSub"><strong>Obuna:</strong> -</p>
+                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                    <button class="btn btn-success" onclick="grantSubscription()">✅ Umrbod Obuna Berish</button>
+                    <button class="btn btn-danger" onclick="revokeSubscription()">🚫 Obunani Bekor Qilish</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="transactions-table">
+            <h2>📋 So'nggi To'lovlar</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Foydalanuvchi</th>
+                        <th>Summa</th>
+                        <th>Provider</th>
+                        <th>Status</th>
+                        <th>Sana</th>
+                    </tr>
+                </thead>
+                <tbody id="transactionsBody">
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: #999;">Ma'lumotlar yuklanmoqda...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        const ADMIN_ID = '7789445876';
+        const API_URL = 'http://localhost:9990/admin';
+        
+        let currentUser = null;
+        
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_URL}/stats?adminId=${ADMIN_ID}`);
+                const data = await response.json();
+                
+                document.getElementById('totalUsers').textContent = data.totalUsers;
+                document.getElementById('activeSubscriptions').textContent = data.activeSubscriptions;
+                document.getElementById('totalRevenue').textContent = data.totalRevenue.toLocaleString() + ' so\'m';
+                
+                // Load transactions
+                const tbody = document.getElementById('transactionsBody');
+                tbody.innerHTML = '';
+                
+                data.recentTransactions.forEach((t, index) => {
+                    const statusClass = t.status === 'PAID' ? 'status-paid' : 
+                                      t.status === 'FAILED' ? 'status-failed' : 'status-pending';
+                    const statusText = t.status === 'PAID' ? 'To\'landi' : 
+                                     t.status === 'FAILED' ? 'Xato' : 'Kutilmoqda';
+                    
+                    const row = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${t.userName}</td>
+                            <td>${t.amount.toLocaleString()} so'm</td>
+                            <td>${t.provider}</td>
+                            <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                            <td>${new Date(t.createdAt).toLocaleDateString('uz-UZ')}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                showMessage('Statistikani yuklashda xatolik!', 'error');
+            }
+        }
+        
+        async function searchUser() {
+            const telegramId = document.getElementById('searchUser').value.trim();
+            if (!telegramId) {
+                showMessage('Telegram ID kiriting!', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/user-by-telegram?telegramId=${telegramId}&adminId=${ADMIN_ID}`);
+                
+                if (!response.ok) {
+                    throw new Error('Foydalanuvchi topilmadi');
+                }
+                
+                const user = await response.json();
+                currentUser = user;
+                
+                const isActive = user.isActive && user.subscriptionEnd && new Date(user.subscriptionEnd) > new Date();
+                
+                document.getElementById('userName').innerHTML = `<strong>Ism:</strong> ${user.firstName || 'Unknown'}`;
+                document.getElementById('userStatus').innerHTML = `<strong>Telegram ID:</strong> ${user.telegramId}`;
+                document.getElementById('userSub').innerHTML = `<strong>Status:</strong> ${isActive ? '✅ VIP (Aktiv)' : '❌ Oddiy'}`;
+                
+                document.getElementById('userInfo').style.display = 'block';
+                showMessage('Foydalanuvchi topildi!', 'success');
+            } catch (error) {
+                console.error('Error searching user:', error);
+                showMessage(error.message, 'error');
+                document.getElementById('userInfo').style.display = 'none';
+            }
+        }
+        
+        async function grantSubscription() {
+            if (!currentUser) {
+                showMessage('Avval foydalanuvchini qidiring!', 'error');
+                return;
+            }
+            
+            if (!confirm(`${currentUser.firstName || 'Unknown'} ga umrbod obuna berilsinmi?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/grant-subscription`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        adminTelegramId: ADMIN_ID
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Obuna berishda xatolik');
+                }
+                
+                showMessage('✅ Umrbod obuna muvaffaqiyatli berildi!', 'success');
+                await searchUser(); // Refresh user info
+                await loadStats(); // Refresh stats
+            } catch (error) {
+                console.error('Error granting subscription:', error);
+                showMessage(error.message, 'error');
+            }
+        }
+        
+        async function revokeSubscription() {
+            if (!currentUser) {
+                showMessage('Avval foydalanuvchini qidiring!', 'error');
+                return;
+            }
+            
+            if (!confirm(`${currentUser.firstName || 'Unknown'} ning obunasi bekor qilinsinmi?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/revoke-subscription`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        adminTelegramId: ADMIN_ID
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Obunani bekor qilishda xatolik');
+                }
+                
+                showMessage('🚫 Obuna muvaffaqiyatli bekor qilindi!', 'success');
+                await searchUser(); // Refresh user info
+                await loadStats(); // Refresh stats
+            } catch (error) {
+                console.error('Error revoking subscription:', error);
+                showMessage(error.message, 'error');
+            }
+        }
+        
+        function showMessage(text, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = `message ${type}`;
+            setTimeout(() => {
+                messageEl.className = 'message';
+            }, 5000);
+        }
+        
+        // Load stats on page load
+        loadStats();
+        
+        // Refresh stats every 30 seconds
+        setInterval(loadStats, 30000);
+    </script>
+</body>
+</html>
