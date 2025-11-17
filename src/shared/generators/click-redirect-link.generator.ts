@@ -17,11 +17,12 @@ function buildMerchantTransactionId(params: ClickRedirectParams): string {
 export function buildClickProviderUrl(params: ClickRedirectParams): string {
   const serviceId = config.CLICK_SERVICE_ID;
   const merchantId = config.CLICK_MERCHANT_ID;
-  
-  // Click API: merchant_trans_id ga userId, param2 ga planId yuboriladi
   const merchantUserId = config.CLICK_MERCHANT_USER_ID;
 
-  return `${CLICK_URL}/services/pay?service_id=${serviceId}&merchant_id=${merchantId}&merchant_user_id=${merchantUserId}&amount=${params.amount}&transaction_param=${encodeURIComponent(params.userId)}&param2=${encodeURIComponent(params.planId)}&return_url=${BOT_URL}`;
+  // Click API: transaction_param ga userId.planId formatida yuboramiz
+  const merchantTransId = buildMerchantTransactionId(params);
+
+  return `${CLICK_URL}/services/pay?service_id=${serviceId}&merchant_id=${merchantId}&merchant_user_id=${merchantUserId}&amount=${params.amount}&transaction_param=${encodeURIComponent(merchantTransId)}&return_url=${BOT_URL}`;
 }
 
 export function getClickRedirectLink(params: ClickRedirectParams) {

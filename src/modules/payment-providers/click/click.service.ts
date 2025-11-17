@@ -108,18 +108,18 @@ export class ClickService {
 
     const merchantTransId = clickReqBody.merchant_trans_id;
     const context = parseMerchantTransactionId(merchantTransId);
-    
-    // Click integration: merchant_trans_id = userId, param2 = planId
-    const userId = context.userId ?? merchantTransId;
-    const planId = clickReqBody.param2 ?? context.planId;
+
+    // Click integration: merchant_trans_id formatida userId.planId keladi
+    const userId = context.userId;
+    const planId = context.planId;
     const merId = merchantTransId;
     const amount = clickReqBody.amount;
-    
-    logger.info('📋 Click prepare - parsed IDs', { 
-      merchantTransId, 
-      userId, 
+
+    logger.info('📋 Click prepare - parsed IDs', {
+      merchantTransId,
+      userId,
       planId,
-      param2: clickReqBody.param2 
+      context
     });
 
     if (!userId) {
@@ -239,21 +239,21 @@ export class ClickService {
 
     const merchantTransId = clickReqBody.merchant_trans_id;
     const context = parseMerchantTransactionId(merchantTransId);
-    
-    // Click integration: merchant_trans_id = userId, param2 = planId
-    const userId = context.userId ?? merchantTransId;
-    const planId = clickReqBody.param2 ?? context.planId;
+
+    // Click integration: merchant_trans_id formatida userId.planId keladi
+    const userId = context.userId;
+    const planId = context.planId;
     const merId = merchantTransId;
     const prepareId = clickReqBody.merchant_prepare_id;
     const transId = clickReqBody.click_trans_id + '';
     const serviceId = clickReqBody.service_id;
     const amount = clickReqBody.amount;
-    
-    logger.info('📋 Click complete - parsed IDs', { 
-      merchantTransId, 
-      userId, 
+
+    logger.info('📋 Click complete - parsed IDs', {
+      merchantTransId,
+      userId,
       planId,
-      param2: clickReqBody.param2 
+      context
     });
 
     if (!userId) {
@@ -420,12 +420,12 @@ export class ClickService {
         await bot.api.sendMessage(
           user.telegramId,
           `🎉 <b>Tabriklaymiz!</b>\n\n` +
-            `✅ To'lov muvaffaqiyatli amalga oshirildi!\n` +
-            `💰 Summa: ${plan.price} so'm\n\n` +
-            `🌟 <b>Endi siz VIP foydalanuvchisiz!</b>\n` +
-            `♾️ Barcha ismlar manosi umrbod ochiq!\n\n` +
-            `Botdan bemalol foydalanishingiz mumkin! 🚀\n\n` +
-            `🔮 Endi asosiy botga o'ting: @gbclilBot`,
+          `✅ To'lov muvaffaqiyatli amalga oshirildi!\n` +
+          `💰 Summa: ${plan.price} so'm\n\n` +
+          `🌟 <b>Endi siz VIP foydalanuvchisiz!</b>\n` +
+          `♾️ Barcha ismlar manosi umrbod ochiq!\n\n` +
+          `Botdan bemalol foydalanishingiz mumkin! 🚀\n\n` +
+          `🔮 Endi asosiy botga o'ting: @gbclilBot`,
           {
             parse_mode: 'HTML',
             reply_markup: {
