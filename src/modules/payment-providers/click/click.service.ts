@@ -108,10 +108,19 @@ export class ClickService {
 
     const merchantTransId = clickReqBody.merchant_trans_id;
     const context = parseMerchantTransactionId(merchantTransId);
-    const planId = context.planId ?? merchantTransId;
+    
+    // Click integration: merchant_trans_id = userId, param2 = planId
+    const userId = context.userId ?? merchantTransId;
+    const planId = clickReqBody.param2 ?? context.planId;
     const merId = merchantTransId;
-    const userId = clickReqBody.param2 ?? context.userId;
     const amount = clickReqBody.amount;
+    
+    logger.info('📋 Click prepare - parsed IDs', { 
+      merchantTransId, 
+      userId, 
+      planId,
+      param2: clickReqBody.param2 
+    });
 
     if (!userId) {
       logger.error('Click prepare received without userId', {
@@ -230,13 +239,22 @@ export class ClickService {
 
     const merchantTransId = clickReqBody.merchant_trans_id;
     const context = parseMerchantTransactionId(merchantTransId);
-    const planId = context.planId ?? merchantTransId;
+    
+    // Click integration: merchant_trans_id = userId, param2 = planId
+    const userId = context.userId ?? merchantTransId;
+    const planId = clickReqBody.param2 ?? context.planId;
     const merId = merchantTransId;
-    const userId = clickReqBody.param2 ?? context.userId;
     const prepareId = clickReqBody.merchant_prepare_id;
     const transId = clickReqBody.click_trans_id + '';
     const serviceId = clickReqBody.service_id;
     const amount = clickReqBody.amount;
+    
+    logger.info('📋 Click complete - parsed IDs', { 
+      merchantTransId, 
+      userId, 
+      planId,
+      param2: clickReqBody.param2 
+    });
 
     if (!userId) {
       logger.error('Click complete received without userId', {

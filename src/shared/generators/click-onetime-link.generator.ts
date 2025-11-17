@@ -15,16 +15,18 @@ export function generateClickOnetimeLink(
 ): string {
   const CLICK_SERVICE_ID = config.CLICK_SERVICE_ID;
   const CLICK_MERCHANT_ID = config.CLICK_MERCHANT_ID;
+  const CLICK_MERCHANT_USER_ID = config.CLICK_MERCHANT_USER_ID;
   const RETURN_URL = 'https://t.me/gbclilBot';
 
-  // Click to'lov linki
+  // Click to'lov linki: transaction_param = userId, param2 = planId
   const paymentUrl = new URL('https://my.click.uz/services/pay');
 
   paymentUrl.searchParams.set('service_id', CLICK_SERVICE_ID);
   paymentUrl.searchParams.set('merchant_id', CLICK_MERCHANT_ID);
+  paymentUrl.searchParams.set('merchant_user_id', CLICK_MERCHANT_USER_ID);
   paymentUrl.searchParams.set('amount', amount.toString());
   paymentUrl.searchParams.set('transaction_param', userId); // userId
-  paymentUrl.searchParams.set('additional_param3', planId); // planId
+  paymentUrl.searchParams.set('param2', planId); // planId
   paymentUrl.searchParams.set('return_url', RETURN_URL);
 
   return paymentUrl.toString();
