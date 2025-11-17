@@ -181,7 +181,7 @@ export class BotService {
         await this.handleTrendCallbacks(ctx, parts);
         break;
       case 'main':
-        await this.showMainMenu(ctx);
+        await this.handleStart(ctx);
         await ctx.answerCallbackQuery();
         break;
       case 'name_meaning':
@@ -438,7 +438,7 @@ export class BotService {
   }
 
   private async promptForName(ctx: BotContext): Promise<void> {
-    const keyboard = new InlineKeyboard().text('🏠 Menyu', 'main:menu');
+    const keyboard = new InlineKeyboard().text('🏠 Menyu', 'main');
     await ctx.reply(
       '🌟 Ism ma\'nosi\n\nIltimos, qidirayotgan ismingizni yozing.\n\n💡 Masalan: Kamoliddin, Oisha, Muhammad.',
       { reply_markup: keyboard, parse_mode: 'HTML' },
@@ -471,7 +471,7 @@ export class BotService {
       .text('⭐ Sevimlilarga', `fav:toggle:${slug}`)
       .row()
       .text('📈 Trend', `name:trend:${slug}`)
-      .text('🏠 Menyu', 'main:menu');
+      .text('🏠 Menyu', 'main');
   }
 
   private async showNameDetail(ctx: BotContext, slug: string): Promise<void> {
@@ -514,7 +514,7 @@ export class BotService {
 
     const keyboard = new InlineKeyboard()
       .text("💳 To'lov qilish", 'onetime_payment')
-      .text('🏠 Menyu', 'main:menu');
+      .text('🏠 Menyu', 'main');
 
     await ctx.reply(
       "🔒 Ushbu bo'limdan foydalanish uchun premium talab qilinadi.\n\n" +
@@ -548,7 +548,7 @@ export class BotService {
       .text('👧 Qizlar', 'trend:overview:monthly:girl')
       .text("👦 O'g'illar", 'trend:overview:monthly:boy')
       .row()
-      .text('🏠 Menyu', 'main:menu');
+      .text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
@@ -572,7 +572,7 @@ export class BotService {
 
     const keyboard = new InlineKeyboard();
     insights.forEach((item) => keyboard.row().text(item.name, `name:detail:${item.name.toLowerCase()}`));
-    keyboard.row().text('🏠 Menyu', 'main:menu');
+    keyboard.row().text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
@@ -587,7 +587,7 @@ export class BotService {
       .text('📊 So\'rovnoma', 'community:poll')
       .row()
       .text('🔗 Ulashish', 'community:share')
-      .text('🏠 Menyu', 'main:menu');
+      .text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
@@ -615,7 +615,7 @@ export class BotService {
       .row()
       .text('🤍 Aniqlanmagan', 'personal:gender:all')
       .row()
-      .text('🏠 Menyu', 'main:menu');
+      .text('🏠 Menyu', 'main');
 
     const message =
       "✨ <b>Farzandingizga ism tanlashda ikkilanyapsizmi?</b>\n\n" +
@@ -674,7 +674,7 @@ export class BotService {
     });
     keyboard.row().text('✅ Tayyor', 'personal:focus:done');
     keyboard.text('🔄 Qayta', 'personal:focus:reset');
-    keyboard.row().text('🏠 Menyu', 'main:menu');
+    keyboard.row().text('🏠 Menyu', 'main');
 
     const selectedLine = selected.length
       ? `Tanlangan qadriyatlar: ${selected.map((tag) => `#${tag}`).join(' ')}`
@@ -770,7 +770,7 @@ export class BotService {
 
     const keyboard = new InlineKeyboard();
     suggestions.forEach((item) => keyboard.row().text(item.name, `name:detail:${item.slug}`));
-    keyboard.row().text('🏠 Menyu', 'main:menu');
+    keyboard.row().text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
@@ -798,7 +798,7 @@ export class BotService {
     question.options.forEach((option) => {
       keyboard.row().text(option.label, `quiz:answer:${question.id}:${option.value}`);
     });
-    keyboard.row().text('🏠 Menyu', 'main:menu');
+    keyboard.row().text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
@@ -885,7 +885,7 @@ export class BotService {
 
     const keyboard = new InlineKeyboard();
     result.suggestions.forEach((item) => keyboard.row().text(item.name, `name:detail:${item.slug}`));
-    keyboard.row().text('🏠 Menyu', 'main:menu');
+    keyboard.row().text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
@@ -918,7 +918,7 @@ export class BotService {
 
     const list = await this.favoritesService.listFavorites(user.id, page);
     if (!list.totalItems) {
-      const keyboard = new InlineKeyboard().text('🌟 Ism qidirish', 'name_meaning').text('🏠 Menyu', 'main:menu');
+      const keyboard = new InlineKeyboard().text('🌟 Ism qidirish', 'name_meaning').text('🏠 Menyu', 'main');
       await this.safeEditOrReply(
         ctx,
         '⭐ Sevimli ismlar topilmadi. Har bir ism kartasida ⭐ tugmasini bosib qo\'shing.',
@@ -943,10 +943,10 @@ export class BotService {
     if (list.totalPages > 1) {
       const prev = page > 1 ? page - 1 : list.totalPages;
       const next = page < list.totalPages ? page + 1 : 1;
-      keyboard.row().text('⬅️', `fav:list:${prev}`).text(`${page}/${list.totalPages}`, 'main:menu').text('➡️', `fav:list:${next}`);
+      keyboard.row().text('⬅️', `fav:list:${prev}`).text(`${page}/${list.totalPages}`, 'main').text('➡️', `fav:list:${next}`);
     }
 
-    keyboard.row().text('🏠 Menyu', 'main:menu');
+    keyboard.row().text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
@@ -991,7 +991,7 @@ export class BotService {
       .text('💙 Payme', 'onetime|payme')
       .text('🟢 Click', 'onetime|click')
       .row()
-      .text('🏠 Menyu', 'main:menu');
+      .text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
@@ -1038,7 +1038,7 @@ export class BotService {
     const keyboard = new InlineKeyboard()
       .url("💳 To'lovga o'tish", paymentLink)
       .row()
-      .text('🏠 Menyu', 'main:menu');
+      .text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
@@ -1049,7 +1049,7 @@ export class BotService {
   }
 
   private async showNameInputHelp(ctx: BotContext, input: string): Promise<void> {
-    const keyboard = new InlineKeyboard().text("🌟 Ism ma'nosi", 'name_meaning').row().text('🏠 Menyu', 'main:menu');
+    const keyboard = new InlineKeyboard().text("🌟 Ism ma'nosi", 'name_meaning').row().text('🏠 Menyu', 'main');
     let message = "❓ Noto'g'ri format!\n\n";
     if (input.length > 50) {
       message += "📝 Ism juda uzun. Qisqaroq variant kiriting.";
@@ -1104,7 +1104,7 @@ export class BotService {
     await this.bot.api.sendMessage(user.telegramId, summaryLines.join('\n'), {
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [[{ text: '🔮 Premium menyuni ochish', callback_data: 'main:menu' }]],
+        inline_keyboard: [[{ text: '🔮 Premium menyuni ochish', callback_data: 'main' }]],
       },
     });
   }
