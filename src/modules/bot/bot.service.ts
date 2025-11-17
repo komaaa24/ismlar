@@ -1,6 +1,6 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { InlineKeyboard } from 'grammy';
+import { InlineKeyboard, Keyboard } from 'grammy';
 import { InlineQueryResultArticle } from 'grammy/types';
 import { Repository } from 'typeorm';
 import { BotCoreService, BotContext } from './services/bot-core.service';
@@ -79,7 +79,54 @@ export class BotService {
     ctx.session.flow = undefined;
     ctx.session.quizAnswers = undefined;
     ctx.session.quizTags = undefined;
-    await this.showMainMenu(ctx, true);
+    
+    // Senior-level welcome message with reply keyboard
+    const telegramId = ctx.from?.id;
+    let hasAccess = false;
+    let user: UserEntity | null = null;
+
+    if (telegramId) {
+      user = await this.userRepository.findOne({ where: { telegramId } });
+      hasAccess = this.userHasActiveAccess(user);
+    }
+
+    const firstName = ctx.from?.first_name || 'do\'st';
+    
+    // 🎨 Beautiful welcome message
+    const welcomeMessage = 
+      `╔══════════════════════╗\n` +
+      `   👑 ISMLAR MANOSI    \n` +
+      `╚══════════════════════╝\n\n` +
+      `Assalomu alaykum, <b>${firstName}</b>! 👋\n\n` +
+      `🌟 <b>Botimiz imkoniyatlari:</b>\n\n` +
+      `🔍 <b>Ism Ma'nosi</b> - Istalgan ismning ma'nosi\n` +
+      `🎯 <b>Shaxsiy Tavsiya</b> - Sizga mos ismlar\n` +
+      `📊 <b>Trendlar</b> - Eng mashhur ismlar\n` +
+      `⭐ <b>Sevimlilar</b> - Yoqqan ismlarni saqlash\n\n` +
+      (hasAccess 
+        ? `✅ <b>Status:</b> VIP foydalanuvchi\n♾️ Barcha imkoniyatlar ochiq!\n\n`
+        : `💡 <b>Status:</b> Oddiy foydalanuvchi\n💳 Bir martalik to'lov - 5,555 so'm\n♾️ Umrbod premium!\n\n`) +
+      `📱 <b>Qanday ishlatish:</b>\n` +
+      `Pastdagi tugmalardan birini bosing yoki\n` +
+      `ismni to'g'ridan-to'g'ri yozing! ✍️`;
+
+    // 🎹 Professional Reply Keyboard
+    const keyboard = new Keyboard()
+      .text('🔍 Ism Ma\'nosi').text('🎯 Shaxsiy Tavsiya')
+      .row()
+      .text('📊 Trendlar').text('⭐ Sevimlilar')
+      .row();
+
+    if (!hasAccess) {
+      keyboard.text('💳 Premium Obuna');
+    }
+
+    keyboard.resized();
+
+    await ctx.reply(welcomeMessage, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+    });
   }
 
   private async handleAdmin(ctx: BotContext): Promise<void> {
@@ -266,6 +313,25 @@ export class BotService {
       return;
     }
 
+    // Handle reply keyboard button presses
+    switch (text) {
+      case '🔍 Ism Ma\'nosi':
+        await this.promptForName(ctx);
+        return;
+      case '🎯 Shaxsiy Tavsiya':
+        await this.startPersonalizationFlow(ctx);
+        return;
+      case '📊 Trendlar':
+        await this.showTrendMenu(ctx);
+        return;
+      case '⭐ Sevimlilar':
+        await this.showFavorites(ctx);
+        return;
+      case '💳 Premium Obuna':
+        await this.showOnetimePayment(ctx);
+        return;
+    }
+
     if (await this.tryHandleFlowMessage(ctx, text)) {
       return;
     }
@@ -349,7 +415,7 @@ export class BotService {
 
   private async promptForName(ctx: BotContext): Promise<void> {
     const keyboard = new InlineKeyboard().text('🏠 Menyu', 'main:menu');
-    await ctx.editMessageText(
+    await ctx.reply(
       '🌟 Ism ma\'nosi\n\nIltimos, qidirayotgan ismingizni yozing.\n\n💡 Masalan: Kamoliddin, Oisha, Muhammad.',
       { reply_markup: keyboard, parse_mode: 'HTML' },
     );
@@ -623,7 +689,7 @@ export class BotService {
     const focusValues = (flow.payload.focusValues as string[] | undefined) ?? [];
     const parentNames = (flow.payload.parentNames as string[] | undefined) ?? [];
     const result = this.insightsService.buildPersonalizedRecommendations(
-      targetGender, 
+      targetGender,
       focusValues,
       parentNames
     );
@@ -741,7 +807,7 @@ export class BotService {
     const parentNames = profile?.parentNames ?? [];
     const tags = [...(ctx.session.quizTags ?? []), ...focusValues];
     const result = this.insightsService.buildPersonalizedRecommendations(
-      targetGender, 
+      targetGender,
       tags,
       parentNames
     );
@@ -971,9 +1037,7 @@ export class BotService {
       '🎉 <b>Tabriklaymiz!</b>',
       '',
       "✅ To'lov muvaffaqiyatli amalga oshirildi.",
-      plan ? `📦 Reja: ${plan.name}` : undefined,
       selectedService ? `🧾 Xizmat: ${selectedService}` : undefined,
-      `📅 Amal qilish muddati: ${end.toLocaleDateString('uz-UZ')}`,
       '',
       '🌟 Endi barcha premium funksiyalar ochiq!',
     ].filter(Boolean);

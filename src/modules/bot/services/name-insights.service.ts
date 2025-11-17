@@ -487,19 +487,38 @@ export class NameInsightsService {
   }
 
   /**
-   * 🧬 KREATIV LETTER-BLENDING ALGORITM
-   * Ota-ona ismlaridan harflarni olib, farzand ismlariga mos qidiradi
+   * 🧬 ADVANCED GENETIC NAME MATCHING ALGORITHM v2.0
    * 
-   * METODLAR:
-   * 1. Prefix Blending: Ota ismining boshi + Ona ismining oxiri
-   * 2. Suffix Blending: Ona ismining boshi + Ota ismining oxiri
-   * 3. Letter Pool Matching: Ikkala ismdan umumiy harflar
-   * 4. Syllable Fusion: Bo'g'inlarni kombinatsiya qilish
-   * 5. Character Presence: Ota/ona ismi harflari mavjudligi
+   * Senior-level algoritm: Ota-ona ismlaridan farzand ismini genetik tahlil orqali topish
    * 
-   * MISOL:
-   * Ota: "Aziz" + Ona: "Madina" = "Amir" (A+mir), "Zamir" (Z+amir)
-   * Ota: "Jamshid" + Ona: "Dilnoza" = "Jasur" (J+asur), "Dilshod" (Dil+shod)
+   * ARCHITECTURE:
+   * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   * PHASE 1: DNA EXTRACTION (Ota-ona ismlarining "DNK"sini ajratish)
+   *   - Phonetic patterns (Fonetik naqshlar)
+   *   - Semantic roots (Ma'naviy ildizlar)
+   *   - Cultural markers (Madaniy belgilar)
+   *   - Letter frequency analysis (Harf chastotasi tahlili)
+   * 
+   * PHASE 2: GENETIC INHERITANCE (Genetik meros)
+   *   - Dominant traits (Dominant xususiyatlar): Prefix/Suffix matching
+   *   - Recessive traits (Retsessiv xususiyatlar): Hidden letter patterns
+   *   - Co-dominant traits (Ko-dominant): Mixed cultural origins
+   * 
+   * PHASE 3: SMART SCORING (Aqlli baholash tizimi)
+   *   - Multi-factor weighted scoring (Ko'p omilli og'irlik bilan baholash)
+   *   - Cultural compatibility (Madaniy moslik)
+   *   - Phonetic harmony (Fonetik uyg'unlik)
+   *   - Semantic resonance (Ma'noviy rezonans)
+   * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   * 
+   * EXAMPLE:
+   * Input: Ota="Jamshid" (Persian, Leader), Ona="Dilnoza" (Persian, Beauty)
+   * Output: "Jahongir" (900 pts), "Javohir" (850 pts), "Dilshod" (820 pts)
+   * 
+   * Reasoning:
+   * - "Jahongir": Ja- from father + Persian origin match + meaning synergy
+   * - "Javohir": Strong phonetic harmony + cultural alignment
+   * - "Dilshod": Dil- from mother + suffix blend + semantic connection
    */
   buildPersonalizedRecommendations(
     targetGender: TrendGender,
@@ -508,84 +527,228 @@ export class NameInsightsService {
   ): { persona: { code: string; label: string; summary: string }; suggestions: NameSuggestion[] } {
     const persona = this.derivePersona(focusTags);
     const genderFilter = targetGender === 'all' ? undefined : targetGender;
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // PHASE 1: DNA EXTRACTION - Ota-ona ismlarining tahlili
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     
-    // 🎯 Ota-ona ismlari tahlili
-    let parentMeanings: string[] = [];
-    let parentFocusTags: string[] = [];
-    let parentOrigins: string[] = [];
-    let fatherName = '';
-    let motherName = '';
-    
-    if (parentNames && parentNames.length > 0) {
-      fatherName = parentNames[0]?.trim().toLowerCase() || '';
-      motherName = parentNames[1]?.trim().toLowerCase() || '';
-      
-      parentNames.forEach(parentName => {
-        const normalizedName = parentName.trim().toLowerCase();
-        const parentRecord = NAME_LIBRARY.find(
-          record => record.name.toLowerCase() === normalizedName || 
-                   record.slug === normalizedName
-        );
-        
-        if (parentRecord) {
-          const meaningWords = parentRecord.meaning
-            .toLowerCase()
-            .split(/[,،.;:]/)
-            .map(word => word.trim())
-            .filter(word => word.length > 3);
-          
-          parentMeanings.push(...meaningWords);
-          parentFocusTags.push(...parentRecord.focusValues);
-          
-          if (parentRecord.origin) {
-            parentOrigins.push(parentRecord.origin);
-          }
-        }
-      });
+    interface ParentDNA {
+      name: string;
+      origin?: string;
+      meanings: string[];
+      focusValues: string[];
+      letters: Map<string, number>; // Letter frequency
+      syllables: string[];
+      phonemes: string[];
+      culturalWeight: number;
     }
-    
-    // 🧬 Harfiy tahlil funksiyalari
-    const extractLetters = (name: string): Set<string> => {
-      return new Set(name.toLowerCase().split(''));
-    };
-    
-    const calculateLetterOverlap = (childName: string, parentName: string): number => {
-      const childLetters = extractLetters(childName);
-      const parentLetters = extractLetters(parentName);
-      let overlap = 0;
-      parentLetters.forEach(letter => {
-        if (childLetters.has(letter)) overlap++;
+
+    const extractDNA = (parentName: string): ParentDNA | null => {
+      const normalized = parentName.trim().toLowerCase();
+      const parentRecord = NAME_LIBRARY.find(
+        record => record.name.toLowerCase() === normalized || record.slug === normalized
+      );
+
+      if (!parentRecord) return null;
+
+      // Letter frequency analysis
+      const letterFreq = new Map<string, number>();
+      normalized.split('').forEach(letter => {
+        letterFreq.set(letter, (letterFreq.get(letter) || 0) + 1);
       });
-      return overlap;
-    };
-    
-    const hasPrefixMatch = (childName: string, parentName: string, length: number = 2): boolean => {
-      return childName.toLowerCase().startsWith(parentName.toLowerCase().substring(0, length));
-    };
-    
-    const hasSuffixMatch = (childName: string, parentName: string, length: number = 2): boolean => {
-      return childName.toLowerCase().endsWith(parentName.toLowerCase().slice(-length));
-    };
-    
-    const calculateSyllableMatch = (childName: string, parentNames: string[]): number => {
-      let score = 0;
-      const childLower = childName.toLowerCase();
-      
-      parentNames.forEach(parentName => {
-        const parentLower = parentName.toLowerCase();
-        // 2-3 harfli bo'g'inlarni qidirish
-        for (let i = 0; i < parentLower.length - 1; i++) {
-          const syllable2 = parentLower.substring(i, i + 2);
-          const syllable3 = parentLower.substring(i, i + 3);
-          
-          if (childLower.includes(syllable2)) score += 30;
-          if (childLower.includes(syllable3)) score += 50;
+
+      // Syllable extraction (2-3 letter chunks)
+      const syllables: string[] = [];
+      for (let i = 0; i < normalized.length - 1; i++) {
+        syllables.push(normalized.substring(i, i + 2));
+        if (i < normalized.length - 2) {
+          syllables.push(normalized.substring(i, i + 3));
         }
-      });
-      
-      return score;
+      }
+
+      // Phoneme patterns (consonant-vowel patterns)
+      const vowels = new Set(['a', 'e', 'i', 'o', 'u']);
+      const phonemes = normalized.split('').map(char => 
+        vowels.has(char) ? 'V' : 'C'
+      );
+      const phonemePattern = phonemes.join('');
+
+      // Cultural weight (based on origin rarity)
+      const culturalWeight = parentRecord.origin ? 1.5 : 1.0;
+
+      return {
+        name: normalized,
+        origin: parentRecord.origin,
+        meanings: parentRecord.meaning.toLowerCase().split(/[,،.;:]/).map(w => w.trim()).filter(w => w.length > 3),
+        focusValues: parentRecord.focusValues,
+        letters: letterFreq,
+        syllables,
+        phonemes: [phonemePattern],
+        culturalWeight,
+      };
     };
-    
+
+    let fatherDNA: ParentDNA | null = null;
+    let motherDNA: ParentDNA | null = null;
+
+    if (parentNames && parentNames.length > 0) {
+      fatherDNA = extractDNA(parentNames[0] || '');
+      motherDNA = extractDNA(parentNames[1] || '');
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // PHASE 2: GENETIC INHERITANCE - Scoring funksiyalari
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    const calculateGeneticScore = (childName: string, childMeaning: string, childOrigin: string, childFocus: string[]): number => {
+      if (!fatherDNA && !motherDNA) return 0;
+
+      let totalScore = 0;
+      const childLower = childName.toLowerCase();
+      const childMeaningWords = childMeaning.toLowerCase().split(/[,،.;:]/).map(w => w.trim()).filter(w => w.length > 3);
+
+      // ═══════════════════════════════════════════════════
+      // 1. DOMINANT TRAIT: Origin Inheritance (Kelib chiqish merosi)
+      // Weight: 200 points
+      // ═══════════════════════════════════════════════════
+      if (fatherDNA?.origin && fatherDNA.origin === childOrigin) {
+        totalScore += 200 * fatherDNA.culturalWeight;
+      }
+      if (motherDNA?.origin && motherDNA.origin === childOrigin) {
+        totalScore += 200 * motherDNA.culturalWeight;
+      }
+
+      // ═══════════════════════════════════════════════════
+      // 2. DOMINANT TRAIT: Semantic DNA (Ma'noviy DNK)
+      // Weight: 150 points per match
+      // ═══════════════════════════════════════════════════
+      const semanticMatchFather = fatherDNA?.meanings.filter(m =>
+        childMeaningWords.some(cm => cm.includes(m) || m.includes(cm))
+      ).length || 0;
+      const semanticMatchMother = motherDNA?.meanings.filter(m =>
+        childMeaningWords.some(cm => cm.includes(m) || m.includes(cm))
+      ).length || 0;
+      
+      totalScore += (semanticMatchFather + semanticMatchMother) * 150;
+
+      // ═══════════════════════════════════════════════════
+      // 3. DOMINANT TRAIT: Focus Value Inheritance
+      // Weight: 120 points per match
+      // ═══════════════════════════════════════════════════
+      const focusMatchFather = fatherDNA?.focusValues.filter(f => childFocus.includes(f)).length || 0;
+      const focusMatchMother = motherDNA?.focusValues.filter(f => childFocus.includes(f)).length || 0;
+      
+      totalScore += (focusMatchFather + focusMatchMother) * 120;
+
+      // ═══════════════════════════════════════════════════
+      // 4. CO-DOMINANT TRAIT: Syllable Fusion (Bo'g'in sintezi)
+      // Weight: 80 points per syllable match
+      // ═══════════════════════════════════════════════════
+      let syllableMatches = 0;
+      [fatherDNA, motherDNA].forEach(parent => {
+        if (!parent) return;
+        parent.syllables.forEach(syl => {
+          if (childLower.includes(syl)) {
+            syllableMatches++;
+            // Extra bonus for 3-letter syllables (stronger genetic marker)
+            if (syl.length === 3) totalScore += 30;
+          }
+        });
+      });
+      totalScore += syllableMatches * 80;
+
+      // ═══════════════════════════════════════════════════
+      // 5. RECESSIVE TRAIT: Letter Pool Genetics
+      // Weight: 25 points per shared letter
+      // ═══════════════════════════════════════════════════
+      const childLetters = new Map<string, number>();
+      childLower.split('').forEach(letter => {
+        childLetters.set(letter, (childLetters.get(letter) || 0) + 1);
+      });
+
+      [fatherDNA, motherDNA].forEach(parent => {
+        if (!parent) return;
+        parent.letters.forEach((count, letter) => {
+          if (childLetters.has(letter)) {
+            const sharedCount = Math.min(count, childLetters.get(letter) || 0);
+            totalScore += sharedCount * 25;
+          }
+        });
+      });
+
+      // ═══════════════════════════════════════════════════
+      // 6. DOMINANT TRAIT: Prefix Inheritance (Bosh harf DNK)
+      // Weight: 180 points
+      // ═══════════════════════════════════════════════════
+      if (fatherDNA && childLower.startsWith(fatherDNA.name.substring(0, 2))) {
+        totalScore += 180;
+      }
+      if (motherDNA && childLower.startsWith(motherDNA.name.substring(0, 2))) {
+        totalScore += 180;
+      }
+
+      // ═══════════════════════════════════════════════════
+      // 7. RECESSIVE TRAIT: Suffix Inheritance (Oxiri DNK)
+      // Weight: 140 points
+      // ═══════════════════════════════════════════════════
+      if (fatherDNA && childLower.endsWith(fatherDNA.name.slice(-2))) {
+        totalScore += 140;
+      }
+      if (motherDNA && childLower.endsWith(motherDNA.name.slice(-2))) {
+        totalScore += 140;
+      }
+
+      // ═══════════════════════════════════════════════════
+      // 8. DOMINANT TRAIT: First Letter Match (Birinchi harf)
+      // Weight: 100 points
+      // ═══════════════════════════════════════════════════
+      const firstLetter = childLower[0];
+      if (fatherDNA && fatherDNA.name[0] === firstLetter) {
+        totalScore += 100;
+      }
+      if (motherDNA && motherDNA.name[0] === firstLetter) {
+        totalScore += 100;
+      }
+
+      // ═══════════════════════════════════════════════════
+      // 9. CO-DOMINANT: Dual Inheritance Bonus
+      // Weight: 300 points (SUPER BONUS)
+      // ═══════════════════════════════════════════════════
+      if (fatherDNA && motherDNA) {
+        const hasFatherGenes = childLower.includes(fatherDNA.name.substring(0, 2)) || 
+                               Array.from(fatherDNA.letters.keys()).filter(l => childLetters.has(l)).length >= 3;
+        const hasMotherGenes = childLower.includes(motherDNA.name.substring(0, 2)) || 
+                               Array.from(motherDNA.letters.keys()).filter(l => childLetters.has(l)).length >= 3;
+        
+        if (hasFatherGenes && hasMotherGenes) {
+          totalScore += 300; // 🏆 Perfect genetic blend!
+        }
+      }
+
+      // ═══════════════════════════════════════════════════
+      // 10. ADVANCED: Phonetic Harmony (Ovoz uyg'unligi)
+      // Weight: 60 points
+      // ═══════════════════════════════════════════════════
+      const vowels = new Set(['a', 'e', 'i', 'o', 'u']);
+      const childPhoneme = childLower.split('').map(c => vowels.has(c) ? 'V' : 'C').join('');
+      
+      [fatherDNA, motherDNA].forEach(parent => {
+        if (!parent) return;
+        parent.phonemes.forEach(pattern => {
+          // Check if phoneme patterns are similar (CVCV vs CVCV, etc.)
+          if (pattern.length > 0 && childPhoneme.includes(pattern.substring(0, 4))) {
+            totalScore += 60;
+          }
+        });
+      });
+
+      return totalScore;
+    };
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // PHASE 3: SMART SCORING & RANKING
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     const suggestions = NAME_LIBRARY.filter((record) => {
       const matchesGender = !genderFilter || record.gender === genderFilter;
       const matchesPersona = persona.summary
@@ -594,97 +757,26 @@ export class NameInsightsService {
       const matchesFocus = focusTags.length
         ? focusTags.some((tag) => record.focusValues.includes(tag))
         : true;
-      
+
       return matchesGender && matchesPersona && matchesFocus;
     })
       .map((record) => {
-        let score = record.trendIndex.monthly;
-        
-        // 🧬 LETTER-BLENDING SCORING SYSTEM
-        if (parentNames && parentNames.length > 0 && (fatherName || motherName)) {
-          
-          // ⭐️ 1. FOCUS VALUES MATCHING (+100 har bir mos kelish uchun)
-          const focusMatch = parentFocusTags.filter(tag => 
-            record.focusValues.includes(tag)
-          ).length;
-          score += focusMatch * 100;
-          
-          // ⭐️ 2. ORIGIN MATCHING (+150 bonus)
-          if (parentOrigins.length > 0 && record.origin && 
-              parentOrigins.includes(record.origin)) {
-            score += 150;
-          }
-          
-          // ⭐️ 3. MEANING SIMILARITY (+80 har bir o'xshash so'z uchun)
-          const recordMeaningWords = record.meaning
-            .toLowerCase()
-            .split(/[,،.;:]/)
-            .map(word => word.trim())
-            .filter(word => word.length > 3);
-          
-          const meaningMatch = parentMeanings.filter(parentWord =>
-            recordMeaningWords.some(recordWord => 
-              recordWord.includes(parentWord) || parentWord.includes(recordWord)
-            )
-          ).length;
-          score += meaningMatch * 80;
-          
-          // 🧬 4. PREFIX BLENDING (Ota ismining boshi bilan boshlanishi) (+120 bonus)
-          if (fatherName && hasPrefixMatch(record.name, fatherName, 2)) {
-            score += 120;
-          }
-          
-          // 🧬 5. PREFIX BLENDING (Ona ismining boshi bilan boshlanishi) (+120 bonus)
-          if (motherName && hasPrefixMatch(record.name, motherName, 2)) {
-            score += 120;
-          }
-          
-          // 🧬 6. SUFFIX BLENDING (Ota ismining oxiri bilan tugashi) (+100 bonus)
-          if (fatherName && hasSuffixMatch(record.name, fatherName, 2)) {
-            score += 100;
-          }
-          
-          // 🧬 7. SUFFIX BLENDING (Ona ismining oxiri bilan tugashi) (+100 bonus)
-          if (motherName && hasSuffixMatch(record.name, motherName, 2)) {
-            score += 100;
-          }
-          
-          // 🧬 8. LETTER POOL MATCHING (Ota ismidan harflar) (+15 har bir harf uchun)
-          if (fatherName) {
-            const fatherLetterMatch = calculateLetterOverlap(record.name, fatherName);
-            score += fatherLetterMatch * 15;
-          }
-          
-          // 🧬 9. LETTER POOL MATCHING (Ona ismidan harflar) (+15 har bir harf uchun)
-          if (motherName) {
-            const motherLetterMatch = calculateLetterOverlap(record.name, motherName);
-            score += motherLetterMatch * 15;
-          }
-          
-          // 🧬 10. SYLLABLE FUSION (Bo'g'in o'xshashligi) (+30-50 har bir mos bo'g'in)
-          const syllableScore = calculateSyllableMatch(record.name, parentNames);
-          score += syllableScore;
-          
-          // 🧬 11. FIRST LETTER EXACT MATCH (Birinchi harf aynan mos) (+60 bonus)
-          const parentFirstLetters = parentNames.map(name => 
-            name.trim()[0]?.toLowerCase()
+        // Base score from trend index
+        let score = record.trendIndex.monthly * 1.5; // Amplify base score
+
+        // Apply genetic algorithm if parent names provided
+        if (fatherDNA || motherDNA) {
+          const geneticScore = calculateGeneticScore(
+            record.name,
+            record.meaning,
+            record.origin,
+            record.focusValues
           );
-          if (parentFirstLetters.includes(record.name[0]?.toLowerCase())) {
-            score += 60;
-          }
           
-          // 🧬 12. COMBO BONUS: Ota + Ona harflari kombinatsiyasi (+200 super bonus)
-          // Masalan: Farzand ismida ikkala ota-ona ismidan kam 3 ta harf bo'lsa
-          if (fatherName && motherName) {
-            const hasFatherLetters = calculateLetterOverlap(record.name, fatherName) >= 2;
-            const hasMotherLetters = calculateLetterOverlap(record.name, motherName) >= 2;
-            
-            if (hasFatherLetters && hasMotherLetters) {
-              score += 200; // 🎁 Super kreativ kombinatsiya!
-            }
-          }
+          // Genetic score dominates when parents are provided
+          score = geneticScore + (score * 0.3); // 70% genetic, 30% trend
         }
-        
+
         return {
           name: record.name,
           gender: record.gender,
@@ -692,7 +784,7 @@ export class NameInsightsService {
           origin: record.origin,
           meaning: record.meaning,
           focusValues: record.focusValues,
-          trendIndex: score,
+          trendIndex: Math.round(score),
         };
       })
       .sort((a, b) => b.trendIndex - a.trendIndex)

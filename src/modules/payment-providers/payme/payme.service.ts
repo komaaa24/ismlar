@@ -55,7 +55,7 @@ export class PaymeService {
     private readonly transactionRepository: Repository<TransactionEntity>,
     private readonly configService: ConfigService,
     private readonly botService: BotService,
-  ) {}
+  ) { }
 
   async handleTransactionMethods(reqBody: RequestBody) {
     const method = reqBody.method;
@@ -646,26 +646,12 @@ export class PaymeService {
           await bot.api.sendMessage(
             user.telegramId,
             `🎉 <b>Tabriklaymiz!</b>\n\n` +
-              `✅ Payme orqali to'lov muvaffaqiyatli amalga oshirildi!\n` +
-              `💰 Summa: ${transaction.amount / 100} so'm\n` +
-              `📦 Reja: ${plan.name}\n\n` +
-              `🌟 <b>Endi siz VIP foydalanuvchisiz!</b>\n` +
-              `♾️ Barcha ismlar manosi umrbod ochiq!\n\n` +
-              `Botdan bemalol foydalanishingiz mumkin! 🚀\n\n` +
-              `🔮 Endi asosiy botga o'ting: @gbclilBot`,
-            {
-              parse_mode: 'HTML',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: "🔮 Asosiy botga o'tish",
-                      url: 'https://t.me/gbclilBot',
-                    },
-                  ],
-                ],
-              },
-            },
+            `✅ Payme orqali to'lov muvaffaqiyatli amalga oshirildi!\n` +
+            `💰 Summa: ${transaction.amount / 100} so'm\n\n` +
+            `🌟 <b>Endi siz VIP foydalanuvchisiz!</b>\n` +
+            `♾️ Barcha ismlar manosi umrbod ochiq!\n\n` +
+            `Botdan bemalol foydalanishingiz mumkin! 🚀`,
+            { parse_mode: 'HTML' },
           );
         } catch (notificationError) {
           logger.error(

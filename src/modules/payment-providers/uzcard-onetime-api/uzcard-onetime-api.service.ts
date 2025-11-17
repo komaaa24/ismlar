@@ -50,7 +50,7 @@ export class UzcardOnetimeApiService {
     private readonly userCardRepository: Repository<UserCardEntity>,
     @InjectRepository(UserSubscriptionEntity)
     private readonly userSubscriptionRepository: Repository<UserSubscriptionEntity>,
-  ) {}
+  ) { }
 
   async paymentWithoutRegistration(
     dto: UzcardPaymentDto,
@@ -276,26 +276,12 @@ export class UzcardOnetimeApiService {
           await bot.api.sendMessage(
             user.telegramId,
             `🎉 <b>Tabriklaymiz!</b>\n\n` +
-              `✅ UzCard orqali to'lov muvaffaqiyatli amalga oshirildi!\n` +
-              `💰 Summa: ${cardDetails.amount} so'm\n` +
-              `📦 Reja: ${plan.name}\n\n` +
-              `🌟 <b>Endi siz VIP foydalanuvchisiz!</b>\n` +
-              `♾️ Barcha ismlar manosi umrbod ochiq!\n\n` +
-              `Botdan bemalol foydalanishingiz mumkin! 🚀\n\n` +
-              `🔮 Endi asosiy botga o'ting: @gbclilBot`,
-            {
-              parse_mode: 'HTML',
-              reply_markup: {
-                inline_keyboard: [
-                  [
-                    {
-                      text: "🔮 Asosiy botga o'tish",
-                      url: 'https://t.me/gbclilBot',
-                    },
-                  ],
-                ],
-              },
-            },
+            `✅ UzCard orqali to'lov muvaffaqiyatli amalga oshirildi!\n` +
+            `💰 Summa: ${cardDetails.amount} so'm\n\n` +
+            `🌟 <b>Endi siz VIP foydalanuvchisiz!</b>\n` +
+            `♾️ Barcha ismlar manosi umrbod ochiq!\n\n` +
+            `Botdan bemalol foydalanishingiz mumkin! 🚀`,
+            { parse_mode: 'HTML' },
           );
         } catch (notificationError) {
           logger.error(
@@ -347,10 +333,10 @@ export class UzcardOnetimeApiService {
     userId: string,
   ): Promise<
     | {
-        success: boolean;
-        session: string;
-        message: string;
-      }
+      success: boolean;
+      session: string;
+      message: string;
+    }
     | ErrorResponse
   > {
     try {
