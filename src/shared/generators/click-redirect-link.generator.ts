@@ -22,7 +22,9 @@ export function buildClickProviderUrl(params: ClickRedirectParams): string {
   // Click API: transaction_param ga userId.planId formatida yuboramiz
   const merchantTransId = buildMerchantTransactionId(params);
 
-  return `${CLICK_URL}/services/pay?service_id=${serviceId}&merchant_id=${merchantId}&merchant_user_id=${merchantUserId}&amount=${params.amount}&transaction_param=${encodeURIComponent(merchantTransId)}&return_url=${BOT_URL}`;
+  // amount har doim integer bo'lishi kerak
+  const intAmount = Math.floor(Number(params.amount));
+  return `${CLICK_URL}/services/pay?service_id=${serviceId}&merchant_id=${merchantId}&merchant_user_id=${merchantUserId}&amount=${intAmount}&transaction_param=${encodeURIComponent(merchantTransId)}&return_url=${BOT_URL}`;
 }
 
 export function getClickRedirectLink(params: ClickRedirectParams) {
