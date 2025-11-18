@@ -38,7 +38,7 @@ const PERSONAL_FOCUS_TAGS: Array<{ key: string; label: string; tag: string }> = 
 @Injectable()
 export class BotService {
   // Foydalanuvchi oxirgi so'rovi uchun requested name
-  private requestedNames = new Map<number, string>();
+  private requestedNames = new Map<string, string>();
   private readonly logger = new Logger(BotService.name);
   private readonly bot = this.botCoreService.bot;
   private readonly quizFlow: QuizQuestion[];
@@ -618,7 +618,7 @@ export class BotService {
 
     // Oxirgi requested name ni saqlash
     if (normalizedName && telegramId) {
-      this.requestedNames.set(telegramId, normalizedName);
+      this.requestedNames.set(String(telegramId), normalizedName);
     }
 
     const introMessage = displayName
@@ -1200,7 +1200,7 @@ export class BotService {
       '🎉 <b>Tabriklaymiz!</b>\n\n' +
       "✅ To'lov muvaffaqiyatli amalga oshirildi.\n\n" +
       "🌟 Siz 10 yillik obunaga ega bo'ldingiz.\n\n" +
-      "✍️ Istalgan ismni yozing va darhol ma'nosini oling.";
+      "✍️ Istalgan ismni yozing va darhol ma'nosini bilib oling.";
 
     await this.bot.api.sendMessage(user.telegramId, message, {
       parse_mode: 'HTML',
@@ -1221,7 +1221,8 @@ export class BotService {
       return;
     }
 
-    const requestedName = this.requestedNames.get(telegramId);
+    const mapKey = String(telegramId);
+    const requestedName = this.requestedNames.get(mapKey);
     if (!requestedName) {
       return;
     }
@@ -1252,7 +1253,7 @@ export class BotService {
     } catch (err) {
       this.logger.warn('Requested name meaning auto-send failed', err);
     } finally {
-      this.requestedNames.delete(telegramId);
+      this.requestedNames.delete(mapKey);
     }
   }
 }
