@@ -26,7 +26,7 @@ export function generateClickOnetimeLink(
   paymentUrl.searchParams.set('service_id', CLICK_SERVICE_ID);
   paymentUrl.searchParams.set('merchant_id', CLICK_MERCHANT_ID);
   paymentUrl.searchParams.set('merchant_user_id', CLICK_MERCHANT_USER_ID);
-  paymentUrl.searchParams.set('amount', Math.round(amount).toString()); // Integer qilib yuborish
+  paymentUrl.searchParams.set('amount', Math.floor(Number(amount)).toString()); // Har doim integer qilib yuborish
   paymentUrl.searchParams.set('transaction_param', userId); // userId (qisqa)
   paymentUrl.searchParams.set('additional_param3', planId); // planId
   paymentUrl.searchParams.set('return_url', RETURN_URL);

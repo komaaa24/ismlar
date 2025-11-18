@@ -1070,7 +1070,7 @@ export class BotService {
 
     const amount = Math.floor(Number(plan.price));
 
-    // Generate secure payment links with tokens
+    // To'lov havolalari
     const paymeLink = generatePaymeLink({
       amount,
       planId: plan.id,
@@ -1090,7 +1090,7 @@ export class BotService {
       .text('🏠 Menyu', 'main');
 
     await ctx.reply(
-      "🌟 Premium: 1 000 so'm\n♾️ Muddati: Umrbod\n\nQuyidagi to'lov usulini tanlang:",
+      `🌟 Premium: ${amount} so'm\n♾️ Muddati: Umrbod\n\nQuyidagi to'lov usulini tanlang:`,
       { reply_markup: keyboard },
     );
   }
@@ -1142,7 +1142,7 @@ export class BotService {
 
     await this.safeEditOrReply(
       ctx,
-      `💳 <b>${providerTitle}</b> orqali to'lov\n\nSumma: ${plan.price} so'm\n♾️ Muddati: Umrbod\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
+      `💳 <b>${providerTitle}</b> orqali to'lov\n\nSumma: ${amount} so'm\n♾️ Muddati: Umrbod\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
       keyboard,
     );
     await ctx.answerCallbackQuery();
