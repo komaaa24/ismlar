@@ -510,8 +510,6 @@ export class BotService {
 
   private buildNameDetailKeyboard(slug: string): InlineKeyboard {
     return new InlineKeyboard()
-      .text('⭐ Sevimlilarga', `fav:toggle:${slug}`)
-      .row()
       .text('📈 Trend', `name:trend:${slug}`)
       .text('🏠 Menyu', 'main');
   }
@@ -1022,66 +1020,22 @@ export class BotService {
 
     const list = await this.favoritesService.listFavorites(user.id, page);
     if (!list.totalItems) {
-      const keyboard = new InlineKeyboard().text('🌟 Ism qidirish', 'name_meaning').text('🏠 Menyu', 'main');
-      await this.safeEditOrReply(
-        ctx,
-        '⭐ Sevimli ismlar topilmadi. Har bir ism kartasida ⭐ tugmasini bosib qo\'shing.',
-        keyboard,
-      );
+      await ctx.reply('⭐ Sevimli ismlar topilmadi. Har bir ism kartasida ⭐ tugmasini bosib qo\'shing.');
       return;
     }
 
     const offset = (list.page - 1) * list.pageSize;
     const lines = list.items.map((item, index) => {
       const emoji = item.gender === 'girl' ? '👧' : item.gender === 'boy' ? '👦' : '✨';
-      return `${offset + index + 1}. ${emoji} <b>${item.name}</b> — ${item.origin ?? ''}`;
+      return `${offset + index + 1}. ${emoji} ${item.name} — ${item.origin ?? ''}`;
     });
 
-    const keyboard = new InlineKeyboard();
-    list.items.forEach((item) => {
-      if (item.slug) {
-        keyboard.row().text(item.name, `name:detail:${item.slug}`);
-      }
-    });
-
-    if (list.totalPages > 1) {
-      const prev = page > 1 ? page - 1 : list.totalPages;
-      const next = page < list.totalPages ? page + 1 : 1;
-      keyboard.row().text('⬅️', `fav:list:${prev}`).text(`${page}/${list.totalPages}`, 'main').text('➡️', `fav:list:${next}`);
-    }
-
-    keyboard.row().text('🏠 Menyu', 'main');
-
-    await this.safeEditOrReply(
-      ctx,
-      `⭐ Sevimlilar (jami ${list.totalItems})\n\n${lines.join('\n')}`,
-      keyboard,
-    );
+    await ctx.reply(`⭐ Sevimlilar (jami ${list.totalItems})\n\n${lines.join('\n')}`);
   }
 
   private async toggleFavorite(ctx: BotContext, slug: string): Promise<void> {
-    const telegramId = ctx.from?.id;
-    if (!telegramId) {
-      await ctx.answerCallbackQuery('Foydalanuvchi aniqlanmadi');
-      return;
-    }
-
-    const user = await this.userRepository.findOne({ where: { telegramId } });
-    if (!user) {
-      await ctx.answerCallbackQuery('/start yuboring');
-      return;
-    }
-
-    try {
-      const result = await this.favoritesService.toggleFavorite(user.id, slug);
-      await ctx.answerCallbackQuery(
-        result === 'added' ? '⭐ Sevimlilarga qo\'shildi' : '🗑 Sevimlilardan olib tashlandi',
-        { show_alert: false } as any,
-      );
-    } catch (error) {
-      this.logger.error('Toggle favorite failed', error as Error);
-      await ctx.answerCallbackQuery('Xatolik yuz berdi');
-    }
+    // Sevimlilar funksiyasi o'chirildi
+    await ctx.answerCallbackQuery('Sevimlilar funksiyasi o\'chirildi');
   }
 
   private async showOnetimePayment(ctx: BotContext): Promise<void> {
