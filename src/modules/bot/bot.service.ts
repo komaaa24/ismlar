@@ -37,6 +37,8 @@ const PERSONAL_FOCUS_TAGS: Array<{ key: string; label: string; tag: string }> = 
 
 @Injectable()
 export class BotService {
+  // Foydalanuvchi oxirgi so'rovi uchun requested name
+  private requestedNames = new Map<number, string>();
   private readonly logger = new Logger(BotService.name);
   private readonly bot = this.botCoreService.bot;
   private readonly quizFlow: QuizQuestion[];
@@ -616,6 +618,11 @@ export class BotService {
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
         .join(' ')
       : undefined;
+
+    // Oxirgi requested name ni saqlash
+    if (normalizedName && telegramId) {
+      this.requestedNames.set(telegramId, normalizedName);
+    }
 
     const introMessage = displayName
       ? `🔒 <b>${displayName}</b> ismining ma'nosini bilish uchun premium sotib oling.\n\n`
@@ -1207,5 +1214,36 @@ export class BotService {
         inline_keyboard: [[{ text: '🏠 Bosh menyu', callback_data: 'main' }]],
       },
     });
+
+    // Oxirgi so'ralgan ismni sessiondan olib, ma'nosini chiqarib berish
+    // (session/requestedName ni saqlash va ishlatish)
+    // Bu kod faqat handleSubscriptionSuccess ichida, user telegramId bo'yicha sessionni olish kerak
+    // Agar session/requestedName bo'lsa, uni yuborish
+    // Oxirgi requested name ni chiqarib berish
+    try {
+      const requestedName = this.requestedNames.get(user.telegramId);
+      if (requestedName) {
+        // Ism ma'nosini olish
+        const { record, meaning, error } = await this.insightsService.getRichNameMeaning(requestedName);
+        if (!meaning && error) {
+          await this.bot.api.sendMessage(user.telegramId, `❌ ${error}`);
+        } else {
+          let message = this.insightsService.formatRichMeaning(record?.name ?? requestedName, meaning, record);
+          message += '\n\n🔁 Yana boshqa ismni sinab ko\'ring.';
+          await this.bot.api.sendMessage(user.telegramId, message, {
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '📈 Trend', callback_data: `name:trend:${record?.slug ?? requestedName.toLowerCase()}` },
+                { text: '🏠 Menyu', callback_data: 'main' }]
+              ]
+            }
+          });
+        }
+        this.requestedNames.delete(user.telegramId);
+      }
+    } catch (err) {
+      this.logger.warn('Requested name meaning auto-send failed', err);
+    }
   }
 }
