@@ -176,7 +176,10 @@ export class ClickOnetimeService {
       );
 
       const userId = merchant_trans_id.split('.')[0] || merchant_trans_id;
-      const planId = merchant_trans_id.split('.')[1] || param2;
+      const planId =
+        merchant_trans_id.split('.')[1] ||
+        clickReqBody.additional_param3 ||
+        param2;
 
       if (!planId) {
         return {
