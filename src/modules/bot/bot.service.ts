@@ -1199,9 +1199,8 @@ export class BotService {
     const message =
       '🎉 <b>Tabriklaymiz!</b>\n\n' +
       "✅ To'lov muvaffaqiyatli amalga oshirildi.\n\n" +
-      "♾️ Siz butun umrlik obunaga ega bo'ldingiz!\n\n" +
-      "🙏 Rahmat!\n\n" +
-      "Istalgan ismni yozib, botdan foydalanib ismlar ma'nosini bilib olishingiz mumkin.";
+      "🌟 Siz 10 yillik obunaga ega bo'ldingiz.\n\n" +
+      "✍️ Istalgan ismni yozing va darhol ma'nosini oling.";
 
     await this.bot.api.sendMessage(user.telegramId, message, {
       parse_mode: 'HTML',
@@ -1210,30 +1209,50 @@ export class BotService {
       },
     });
 
+    await this.sendPendingNameMeaning(user.telegramId);
+  }
+
+  /**
+   * Agar foydalanuvchi to'lov oldidan ism kiritgan bo'lsa,
+   * VIP faollashgandan keyin avtomatik ma'no jo'natiladi.
+   */
+  public async sendPendingNameMeaning(telegramId: number): Promise<void> {
+    if (!telegramId) {
+      return;
+    }
+
+    const requestedName = this.requestedNames.get(telegramId);
+    if (!requestedName) {
+      return;
+    }
+
     try {
-      const requestedName = this.requestedNames.get(user.telegramId);
-      if (requestedName) {
-        // Ism ma'nosini olish
-        const { record, meaning, error } = await this.insightsService.getRichNameMeaning(requestedName);
-        if (!meaning && error) {
-          await this.bot.api.sendMessage(user.telegramId, `❌ ${error}`);
-        } else {
-          let message = this.insightsService.formatRichMeaning(record?.name ?? requestedName, meaning, record);
-          message += '\n\n🔁 Yana boshqa ismni sinab ko\'ring.';
-          await this.bot.api.sendMessage(user.telegramId, message, {
-            parse_mode: 'HTML',
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: '📈 Trend', callback_data: `name:trend:${record?.slug ?? requestedName.toLowerCase()}` },
-                { text: '🏠 Menyu', callback_data: 'main' }]
-              ]
-            }
-          });
-        }
-        this.requestedNames.delete(user.telegramId);
+      const { record, meaning, error } = await this.insightsService.getRichNameMeaning(requestedName);
+      if (!meaning && error) {
+        await this.bot.api.sendMessage(telegramId, `❌ ${error}`);
+        return;
       }
+
+      let message = this.insightsService.formatRichMeaning(record?.name ?? requestedName, meaning, record);
+      message += '\n\n🔁 Yana boshqa ismni sinab ko\'ring.';
+      await this.bot.api.sendMessage(telegramId, message, {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: '📈 Trend',
+                callback_data: `name:trend:${record?.slug ?? requestedName.toLowerCase()}`,
+              },
+              { text: '🏠 Menyu', callback_data: 'main' },
+            ],
+          ],
+        },
+      });
     } catch (err) {
       this.logger.warn('Requested name meaning auto-send failed', err);
+    } finally {
+      this.requestedNames.delete(telegramId);
     }
   }
 }
