@@ -13,7 +13,6 @@ import { UserEntity } from '../../shared/database/entities/user.entity';
 import { PlanEntity } from '../../shared/database/entities/plan.entity';
 import { TargetGender } from '../../shared/database/entities/user-persona-profile.entity';
 import { ActivityType } from '../../shared/database/entities';
-import { getClickRedirectLink } from '../../shared/generators/click-redirect-link.generator';
 import { generatePaymeLink } from '../../shared/generators/payme-link.generator';
 import { generateClickOnetimeLink } from '../../shared/generators/click-onetime-link.generator';
 import { ActivityTrackerService } from './services/activity-tracker.service';
@@ -595,8 +594,9 @@ export class BotService {
       userId: user.id,
     });
 
-    // Statik Click havolasi
-    const clickLink = 'https://my.click.uz/services/pay?service_id=87085&merchant_id=7269&merchant_user_id=69350&amount=1000&transaction_param=7cf19c94-94dd-4391-8ffa-8ec14cd1caa4&additional_param3=bb7cac0e-ed39-44bd-8144-c63a39bc4d1d&return_url=https%3A%2F%2Ft.me%2Fn17kamolBot';
+    const clickLink = generateClickOnetimeLink(user.id, plan.id, amount, {
+      planCode: plan.selectedName ?? plan.name ?? plan.id,
+    });
 
     const keyboard = new InlineKeyboard()
       .url('💳 Payme', paymeLink)
@@ -1063,15 +1063,15 @@ export class BotService {
 
     const amount = Math.floor(Number(plan.price));
 
-    // To'lov havolalari
     const paymeLink = generatePaymeLink({
       amount,
       planId: plan.id,
       userId: user.id,
     });
 
-    // Test uchun Click havolasini statik qilib qo'yamiz
-    const clickLink = 'https://my.click.uz/services/pay?service_id=87085&merchant_id=7269&merchant_user_id=69350&amount=1000&transaction_param=7cf19c94-94dd-4391-8ffa-8ec14cd1caa4&additional_param3=bb7cac0e-ed39-44bd-8144-c63a39bc4d1d&return_url=https%3A%2F%2Ft.me%2Fn17kamolBot';
+    const clickLink = generateClickOnetimeLink(user.id, plan.id, amount, {
+      planCode: plan.selectedName ?? plan.name ?? plan.id,
+    });
 
     const keyboard = new InlineKeyboard()
       .url('💳 Payme', paymeLink)
@@ -1080,7 +1080,7 @@ export class BotService {
       .text('🏠 Menyu', 'main');
 
     await ctx.reply(
-      `🌟 Premium: ${amount} so'm\n♾️ Muddati: Umrbod\n\nQuyidagi to'lov usulini tanlang:`,
+      `🌟 Premium: ${amount} so'm\n♾️ Muddati: 10 yil\n\nQuyidagi to'lov usulini tanlang:`,
       { reply_markup: keyboard },
     );
   }
@@ -1114,8 +1114,9 @@ export class BotService {
     let paymentLink: string;
 
     if (provider === 'click') {
-      // Statik Click havolasi
-      paymentLink = 'https://my.click.uz/services/pay?service_id=87085&merchant_id=7269&merchant_user_id=69350&amount=1000&transaction_param=7cf19c94-94dd-4391-8ffa-8ec14cd1caa4&additional_param3=bb7cac0e-ed39-44bd-8144-c63a39bc4d1d&return_url=https%3A%2F%2Ft.me%2Fn17kamolBot';
+      paymentLink = generateClickOnetimeLink(user.id, plan.id, amount, {
+        planCode: plan.selectedName ?? plan.name ?? plan.id,
+      });
     } else {
       // Payme
       paymentLink = generatePaymeLink({
@@ -1132,7 +1133,7 @@ export class BotService {
 
     await this.safeEditOrReply(
       ctx,
-      `💳 <b>${providerTitle}</b> orqali to'lov\n\nSumma: ${amount} so'm\n♾️ Muddati: Umrbod\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
+      `💳 <b>${providerTitle}</b> orqali to'lov\n\nSumma: ${amount} so'm\n♾️ Muddati: 10 yil\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
       keyboard,
     );
     await ctx.answerCallbackQuery();
