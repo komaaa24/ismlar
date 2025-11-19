@@ -6,7 +6,7 @@ import { ClickRequest } from './types/click-request.type';
 import { ClickAction, ClickError } from './enums';
 import logger from '../../../shared/utils/logger';
 import { generateMD5 } from '../../../shared/utils/hashing/hasher.helper';
-import { expandShortUuid } from '../../../shared/generators/click-onetime-link.generator';
+import { decodeMerchantTransaction } from '../../../shared/generators/click-onetime-link.generator';
 import {
   UserEntity,
   PlanEntity,
@@ -111,15 +111,13 @@ export class ClickService {
 
     const merchantTransId = clickReqBody.merchant_trans_id;
     const context = parseMerchantTransactionId(merchantTransId);
+    const decoded = decodeMerchantTransaction(
+      clickReqBody.transaction_param || merchantTransId,
+    );
 
-    // Click integration: transaction_param = userId, additional_param3 = planId
-    let userId =
-      expandShortUuid(clickReqBody.transaction_param || merchantTransId) ||
-      merchantTransId;
+    let userId = decoded.userId || context.userId || merchantTransId;
     let planId =
-      expandShortUuid(clickReqBody.additional_param3) ||
-      clickReqBody.additional_param3 ||
-      context.planId;
+      decoded.planId || clickReqBody.additional_param3 || context.planId;
 
     // additional_param3 orqali planId olish
     if (!planId && clickReqBody.additional_param3) {
