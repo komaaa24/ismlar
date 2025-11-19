@@ -52,7 +52,7 @@ export class ClickOnetimeController {
     @Query('amount') amount: string,
   ) {
     try {
-      const paymentLink = this.clickOnetimeService.generatePaymentLink(
+      const paymentLink = await this.clickOnetimeService.generatePaymentLink(
         userId,
         planId,
         amount,

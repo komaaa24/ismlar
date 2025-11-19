@@ -14,7 +14,10 @@ import {
   SubscriptionStatus,
   PaymentType,
 } from 'src/shared/database/entities';
-import { generateClickOnetimeLink } from 'src/shared/generators/click-onetime-link.generator';
+import {
+  expandShortUuid,
+  generateClickOnetimeLink,
+} from 'src/shared/generators/click-onetime-link.generator';
 import { BotService } from '../../bot/bot.service';
 
 /**
@@ -67,16 +70,30 @@ export class ClickOnetimeService {
    * @param amount - Payment amount in UZS
    * @returns Payment link URL
    */
-  generatePaymentLink(userId: string, planId: string, amount: string): string {
+  async generatePaymentLink(
+    userId: string,
+    planId: string,
+    amount: string,
+  ): Promise<string> {
     if (!userId || !planId || !amount) {
       throw new BadRequestException('Missing required parameters');
     }
 
     const normalizedAmount = this.normalizeClickAmount(amount);
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+    const plan = await this.planRepository.findOne({
+      where: { id: planId },
+    });
     const paymentLink = generateClickOnetimeLink(
       userId,
       planId,
       normalizedAmount,
+      {
+        telegramId: user?.telegramId,
+        planCode: plan?.selectedName ?? plan?.name ?? planId,
+      },
     );
 
     this.logger.log(
@@ -176,13 +193,11 @@ export class ClickOnetimeService {
       );
 
       const userId =
-        clickReqBody.additional_param1 ||
-        clickReqBody.param1 ||
+        expandShortUuid(clickReqBody.additional_param1 || clickReqBody.param1) ||
         merchant_trans_id.split('.')[0] ||
         merchant_trans_id;
       const planId =
-        clickReqBody.additional_param2 ||
-        clickReqBody.param2 ||
+        expandShortUuid(clickReqBody.additional_param2 || clickReqBody.param2) ||
         merchant_trans_id.split('.')[1] ||
         clickReqBody.additional_param3 ||
         param2;

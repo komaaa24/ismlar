@@ -6,6 +6,7 @@ import { ClickRequest } from './types/click-request.type';
 import { ClickAction, ClickError } from './enums';
 import logger from '../../../shared/utils/logger';
 import { generateMD5 } from '../../../shared/utils/hashing/hasher.helper';
+import { expandShortUuid } from '../../../shared/generators/click-onetime-link.generator';
 import {
   UserEntity,
   PlanEntity,
@@ -113,13 +114,11 @@ export class ClickService {
 
     // Click integration: transaction_param = userId, additional_param3 = planId
     let userId =
-      clickReqBody.additional_param1 ||
-      clickReqBody.param1 ||
+      expandShortUuid(clickReqBody.additional_param1 || clickReqBody.param1) ||
       context.userId ||
       merchantTransId;
     let planId =
-      clickReqBody.additional_param2 ||
-      clickReqBody.param2 ||
+      expandShortUuid(clickReqBody.additional_param2 || clickReqBody.param2) ||
       context.planId;
 
     // additional_param3 orqali planId olish

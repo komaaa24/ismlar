@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { config } from '../config';
+import { shortenUuid } from './click-onetime-link.generator';
 export type ClickRedirectParams = {
   amount: number;
   planId: string;
@@ -13,17 +14,13 @@ export function buildClickProviderUrl(params: ClickRedirectParams): string {
   const merchantId = config.CLICK_MERCHANT_ID;
   const merchantTransId = buildOrderId(params.userId, params.planId);
   const intAmount = Math.floor(Number(params.amount));
-  const planCode = params.planId;
-  return `${CLICK_URL}/services/pay?service_id=${serviceId}&merchant_id=${merchantId}&amount=${intAmount}&transaction_param=${merchantTransId}&additional_param1=${encodeURIComponent(
+  const planCode = (params.planId || '').replace(/\s+/g, '').toLowerCase();
+  return `${CLICK_URL}/services/pay?service_id=${serviceId}&merchant_id=${merchantId}&amount=${intAmount}&transaction_param=${merchantTransId}&additional_param1=${shortenUuid(
     params.userId,
-  )}&additional_param2=${encodeURIComponent(
+  )}&additional_param2=${shortenUuid(
     params.planId,
   )}&additional_param3=${encodeURIComponent(
     planCode,
-  )}&additional_param4=${encodeURIComponent(
-    planCode,
-  )}&param1=${encodeURIComponent(params.userId)}&param2=${encodeURIComponent(
-    params.planId,
   )}&return_url=${BOT_URL}`;
 }
 
