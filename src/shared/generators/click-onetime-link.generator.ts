@@ -19,17 +19,17 @@ export function generateClickOnetimeLink(
   options?: ClickLinkOptions,
 ): string {
   const normalizedAmount = normalizeAmount(amount);
+  const sanitizedUserId = sanitizeParam(userId);
+  const sanitizedPlanId = sanitizeParam(planId);
+  const planCode = sanitizeParam(options?.planCode ?? planId);
 
   const paymentUrl = new URL('https://my.click.uz/services/pay');
   paymentUrl.searchParams.set('service_id', config.CLICK_SERVICE_ID);
   paymentUrl.searchParams.set('merchant_id', config.CLICK_MERCHANT_ID);
   paymentUrl.searchParams.set('amount', normalizedAmount.toString());
-  paymentUrl.searchParams.set('transaction_param', userId);
-  paymentUrl.searchParams.set('additional_param3', planId);
-  paymentUrl.searchParams.set(
-    'additional_param4',
-    options?.planCode ?? planId,
-  );
+  paymentUrl.searchParams.set('transaction_param', sanitizedUserId);
+  paymentUrl.searchParams.set('additional_param3', sanitizedPlanId);
+  paymentUrl.searchParams.set('additional_param4', planCode);
   paymentUrl.searchParams.set('return_url', RETURN_URL);
 
   return paymentUrl.toString();
@@ -42,4 +42,13 @@ function normalizeAmount(amount: number): number {
   }
 
   return parsed;
+}
+
+function sanitizeParam(value?: string): string {
+  if (!value) {
+    return '';
+  }
+
+  const cleaned = value.replace(/[^a-zA-Z0-9]/g, '');
+  return cleaned || value;
 }
