@@ -1,4 +1,3 @@
-import { Buffer } from 'buffer';
 import { config } from '../config';
 
 const RETURN_URL =
@@ -21,19 +20,15 @@ export function generateClickOnetimeLink(
 ): string {
   const normalizedAmount = normalizeAmount(amount);
   const planCode = (options?.planCode ?? planId).replace(/\s+/g, '').toLowerCase();
-  const merchantTransId = buildOrderId();
+  const merchantTransId = compactUuid(userId);
+  const planToken = compactUuid(planId);
 
   const paymentUrl = new URL('https://my.click.uz/services/pay');
   paymentUrl.searchParams.set('service_id', config.CLICK_SERVICE_ID);
   paymentUrl.searchParams.set('merchant_id', config.CLICK_MERCHANT_ID);
-  if (config.CLICK_MERCHANT_USER_ID) {
-    paymentUrl.searchParams.set('merchant_user_id', config.CLICK_MERCHANT_USER_ID);
-  }
   paymentUrl.searchParams.set('amount', normalizedAmount.toString());
   paymentUrl.searchParams.set('transaction_param', merchantTransId);
-  paymentUrl.searchParams.set('additional_param1', userId);
-  paymentUrl.searchParams.set('additional_param2', planId);
-  paymentUrl.searchParams.set('additional_param3', planId);
+  paymentUrl.searchParams.set('additional_param3', planToken);
   paymentUrl.searchParams.set('additional_param4', planCode);
   paymentUrl.searchParams.set('return_url', RETURN_URL);
 
@@ -49,8 +44,24 @@ function normalizeAmount(amount: number): number {
   return parsed;
 }
 
-function buildOrderId(): string {
-  const seed = `${Date.now()}-${Math.random()}`;
-  const base = Buffer.from(seed).toString('base64').replace(/[^a-zA-Z0-9]/g, '');
-  return base.slice(0, 24).padEnd(24, '0');
+export function expandCompactUuid(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const normalized = value.replace(/[^0-9a-fA-F]/g, '');
+  if (normalized.length !== 32) {
+    return value;
+  }
+  return `${normalized.slice(0, 8)}-${normalized.slice(8, 12)}-${normalized.slice(
+    12,
+    16,
+  )}-${normalized.slice(16, 20)}-${normalized.slice(20)}`.toLowerCase();
+}
+
+function compactUuid(value: string): string {
+  const normalized = value.replace(/[^0-9a-fA-F]/g, '');
+  if (normalized.length === 32) {
+    return normalized;
+  }
+  return value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
 }

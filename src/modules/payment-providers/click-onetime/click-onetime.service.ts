@@ -14,7 +14,10 @@ import {
   SubscriptionStatus,
   PaymentType,
 } from 'src/shared/database/entities';
-import { generateClickOnetimeLink } from 'src/shared/generators/click-onetime-link.generator';
+import {
+  expandCompactUuid,
+  generateClickOnetimeLink,
+} from 'src/shared/generators/click-onetime-link.generator';
 import { BotService } from '../../bot/bot.service';
 
 /**
@@ -183,9 +186,12 @@ export class ClickOnetimeService {
       );
 
       const userId =
-        clickReqBody.additional_param1 || clickReqBody.transaction_param || merchant_trans_id;
+        expandCompactUuid(clickReqBody.transaction_param) ||
+        merchant_trans_id;
       const planId =
-        clickReqBody.additional_param2 || clickReqBody.additional_param3 || param2;
+        expandCompactUuid(clickReqBody.additional_param3) ||
+        clickReqBody.additional_param3 ||
+        param2;
 
       if (!planId) {
         return {
