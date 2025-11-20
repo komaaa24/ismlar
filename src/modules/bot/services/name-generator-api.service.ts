@@ -10,18 +10,23 @@ export interface GeneratedName {
     confidence: number;
 }
 
-interface NameConstraints {
-    prefix?: string;
-    suffix?: string;
-    includes?: string[];
+interface ParentDNA {
+    fatherFirst: string;
+    fatherSecond: string;
+    fatherPrefixTwo: string;
+    fatherChunk: string;
+    fatherLastTwo: string;
+    motherFirst: string;
+    motherSecond: string;
+    motherFirstTwo: string;
+    motherLastTwo: string;
 }
 
-interface NameBlueprint {
-    draftName: string;
+interface ScoredCandidate {
+    name: string;
+    score: number;
+    matches: string[];
     gender: 'boy' | 'girl';
-    confidence: number;
-    constraints: NameConstraints;
-    storyBuilder: (resolvedName: string) => string;
 }
 
 @Injectable()
@@ -37,7 +42,8 @@ export class NameGeneratorApiService {
         'Madina', 'Sayyora', 'Sabina', 'Umida', 'Muslimah', 'Rayhona', 'Zebo',
         'Adolat', 'Sarvinoz', 'Mehribon', 'Mahliyo', 'Shahodat', 'Yulduz', 'Nafisa',
         'Gulshan', 'Sitora', 'Shahzoda', 'Gulrux', 'Mehrigul', 'Ruqiya', 'Saodat',
-        'Rano', 'Yorqinoy'
+        'Rano', 'Yorqinoy', 'Mushtariy', 'Lobar', 'Nargiza', 'Ruxshona', 'Feruza',
+        'Malohat', 'Gulqiz'
     ];
 
     private readonly FALLBACK_BOY_NAMES = [
@@ -47,16 +53,17 @@ export class NameGeneratorApiService {
         'Samir', 'Rustam', 'Komron', 'Shukrullo', 'Muslim', 'Azamat', 'Shohruh',
         'Abror', 'Behruz', 'Bilol', 'Diyor', 'Erkin', 'Habib', 'Jamshid', 'Karim',
         'Laziz', 'Mironshoh', 'Navruz', 'Oybek', 'Qahramon', 'Rahim', 'Sherzod',
-        'Tursun', 'Umar', 'Yusuf', 'Ziyod', 'Zohid', 'Muhsin'
+        'Tursun', 'Umar', 'Yusuf', 'Ziyod', 'Zohid', 'Muhsin', 'Asadbek', 'Javlon',
+        'Kamronbek', 'Shahboz', 'Tolib', 'Yahyo', 'Zikrulloh', 'Hikmatulloh'
     ];
 
     constructor(private readonly httpService: HttpService) { }
 
     /**
-     * 🧬 Senior darajadagi algoritm
-     *  - Ota va ona ismlaridan harflar olinadi
-     *  - Avval APIdan aniq ism tekshiriladi
-     *  - Topilmasa, yaqin real ismga o'tiladi
+     * 🧬 Senior darajadagi yangi algoritm
+     *  - Faqat real ismlar poolidan foydalanadi
+     *  - Har bir nom ota-onadan olingan harflar bo'yicha ball oladi
+     *  - API ma'nosi tasdiqlangan nomlargina qaytariladi
      */
     async generateNamesByPattern(
         fatherName: string,
@@ -70,243 +77,161 @@ export class NameGeneratorApiService {
             return [];
         }
 
-        const blueprints = this.buildBlueprints(cleanedFather, cleanedMother);
-        const filteredBlueprints = targetGender === 'all'
-            ? blueprints
-            : blueprints.filter((blueprint) => blueprint.gender === targetGender);
+        const dna = this.buildParentDNA(cleanedFather, cleanedMother);
+        const candidates = this.collectCandidates(targetGender);
+        const scored = this.scoreCandidates(candidates, dna)
+            .filter((item) => item.score > 0)
+            .slice(0, 6);
 
         const results: GeneratedName[] = [];
-        const seen = new Set<string>();
 
-        for (const blueprint of filteredBlueprints) {
-            const resolved = await this.resolveBlueprint(blueprint);
-            if (!resolved || seen.has(resolved.name)) {
+        for (const candidate of scored) {
+            const apiPayload = await this.lookupName(candidate.name);
+            if (!apiPayload) {
+                this.logger.warn(`API ma'nosi topilmadi: ${candidate.name}`);
                 continue;
             }
 
-            seen.add(resolved.name);
+            const story = this.buildStory(candidate.name, candidate.matches, cleanedFather, cleanedMother, dna);
             results.push({
-                name: resolved.name,
-                meaning: `${resolved.api.meaning}\n\n${resolved.story}`,
-                origin: resolved.api.origin,
-                gender: blueprint.gender,
-                confidence: blueprint.confidence,
+                name: candidate.name,
+                meaning: `${apiPayload.meaning}\n\n${story}`,
+                origin: apiPayload.origin,
+                gender: candidate.gender,
+                confidence: Math.min(100, candidate.score),
             });
-        }
 
-        if (!results.length) {
-            for (const blueprint of blueprints) {
-                const resolved = await this.resolveBlueprint(blueprint);
-                if (resolved && !seen.has(resolved.name)) {
-                    results.push({
-                        name: resolved.name,
-                        meaning: `${resolved.api.meaning}\n\n${resolved.story}`,
-                        origin: resolved.api.origin,
-                        gender: blueprint.gender,
-                        confidence: blueprint.confidence,
-                    });
-                    break;
-                }
+            if (results.length >= 3) {
+                break;
             }
         }
 
         return results;
     }
 
-    /**
-     * 👨‍👩‍👧‍👦 Harf bloklarini qurish
-     */
-    private buildBlueprints(fatherName: string, motherName: string): NameBlueprint[] {
+    private collectCandidates(targetGender: 'boy' | 'girl' | 'all'): ScoredCandidate[] {
+        if (targetGender === 'boy') {
+            return this.FALLBACK_BOY_NAMES.map((name) => ({ name, gender: 'boy' as const, score: 0, matches: [] }));
+        }
+        if (targetGender === 'girl') {
+            return this.FALLBACK_GIRL_NAMES.map((name) => ({ name, gender: 'girl' as const, score: 0, matches: [] }));
+        }
+
+        return [
+            ...this.FALLBACK_GIRL_NAMES.map((name) => ({ name, gender: 'girl' as const, score: 0, matches: [] })),
+            ...this.FALLBACK_BOY_NAMES.map((name) => ({ name, gender: 'boy' as const, score: 0, matches: [] })),
+        ];
+    }
+
+    private buildParentDNA(fatherName: string, motherName: string): ParentDNA {
         const fatherLower = fatherName.toLowerCase();
         const motherLower = motherName.toLowerCase();
 
-        const fatherFirst = fatherLower[0] ?? '';
-        const fatherSecond = fatherLower[1] ?? '';
-        const fatherPrefixTwo = (fatherFirst + fatherSecond).substring(0, fatherSecond ? 2 : 1);
-        const fatherLastTwo = fatherLower.slice(-2);
-        const fatherFirstChunk = fatherLower.slice(0, 3) || fatherLower;
-
-        const motherLastTwo = motherLower.slice(-2);
-        const motherFirstTwo = motherLower.slice(0, 2);
-        const motherPenultimate = motherLower.slice(-2, -1);
-        const motherMix = [
-            motherPenultimate,
-            motherLower[1] ?? '',
-            motherLower[0] ?? '',
-        ].join('');
-
-        const blueprints: NameBlueprint[] = [];
-
-        if (fatherFirst && motherLastTwo) {
-            const rawName = this.composeName([
-                fatherFirst,
-                fatherSecond || '',
-                'bi',
-                motherLastTwo,
-            ]);
-
-            blueprints.push({
-                draftName: rawName,
-                gender: 'girl',
-                confidence: 95,
-                constraints: {
-                    prefix: fatherPrefixTwo,
-                    suffix: motherLastTwo,
-                    includes: [fatherFirst, motherLastTwo],
-                },
-                storyBuilder: (resolvedName: string) =>
-                    `👧 ${resolvedName} = ${fatherName} ismidan "${(fatherFirst + fatherSecond).toUpperCase()}" bo'g'ini va ` +
-                    `${motherName} ismidan oxirgi "${motherLastTwo.toUpperCase()}" harflari olindi. "bi" bo'g'ini talaffuzni yumshatdi.`,
-            });
-        }
-
-        if (fatherFirstChunk && motherMix) {
-            const rawName = this.composeName([fatherFirstChunk, motherMix]);
-
-            blueprints.push({
-                draftName: rawName,
-                gender: 'boy',
-                confidence: 90,
-                constraints: {
-                    prefix: fatherFirstChunk,
-                    suffix: motherMix,
-                    includes: [fatherFirstChunk, motherMix],
-                },
-                storyBuilder: (resolvedName: string) =>
-                    `👦 ${resolvedName} = ${fatherName} ismidan "${fatherFirstChunk.toUpperCase()}" bo'g'ini ` +
-                    `va ${motherName} ismida olingan "${motherMix.toUpperCase()}" harflar uyg'unlashuvi.`,
-            });
-        }
-
-        if (motherFirstTwo && fatherLastTwo) {
-            const rawName = this.composeName([motherFirstTwo, fatherLastTwo]);
-            const explanation = (resolvedName: string) =>
-                `🔁 ${resolvedName} - ${motherName} boshidagi "${motherFirstTwo.toUpperCase()}" ` +
-                `hamda ${fatherName} oxiridagi "${fatherLastTwo.toUpperCase()}" harflari bilan to'qildi.`;
-
-            blueprints.push({
-                draftName: rawName,
-                gender: 'girl',
-                confidence: 75,
-                constraints: {
-                    prefix: motherFirstTwo,
-                    suffix: fatherLastTwo,
-                    includes: [motherFirstTwo, fatherLastTwo],
-                },
-                storyBuilder: explanation,
-            });
-
-            blueprints.push({
-                draftName: rawName,
-                gender: 'boy',
-                confidence: 75,
-                constraints: {
-                    prefix: motherFirstTwo,
-                    suffix: fatherLastTwo,
-                    includes: [motherFirstTwo, fatherLastTwo],
-                },
-                storyBuilder: explanation,
-            });
-        }
-
-        return blueprints;
+        return {
+            fatherFirst: fatherLower[0] ?? '',
+            fatherSecond: fatherLower[1] ?? '',
+            fatherPrefixTwo: fatherLower.slice(0, 2),
+            fatherChunk: fatherLower.slice(0, 3),
+            fatherLastTwo: fatherLower.slice(-2),
+            motherFirst: motherLower[0] ?? '',
+            motherSecond: motherLower[1] ?? '',
+            motherFirstTwo: motherLower.slice(0, 2),
+            motherLastTwo: motherLower.slice(-2),
+        };
     }
 
-    /**
-     * Blueprintni API orqali tasdiqlash yoki fallback topish
-     */
-    private async resolveBlueprint(blueprint: NameBlueprint): Promise<{
-        name: string;
-        api: { meaning: string; origin: string };
-        story: string;
-    } | null> {
-        const exact = await this.lookupName(blueprint.draftName);
-        if (exact) {
-            return {
-                name: blueprint.draftName,
-                api: exact,
-                story: blueprint.storyBuilder(blueprint.draftName),
-            };
+    private scoreCandidates(candidates: ScoredCandidate[], dna: ParentDNA): ScoredCandidate[] {
+        return candidates
+            .map((candidate) => this.scoreCandidate(candidate, dna))
+            .filter((item) => item.score > 0)
+            .sort((a, b) => b.score - a.score);
+    }
+
+    private scoreCandidate(candidate: ScoredCandidate, dna: ParentDNA): ScoredCandidate {
+        const lower = candidate.name.toLowerCase();
+        const matches: string[] = [];
+        let score = 0;
+
+        if (!lower.includes(dna.fatherFirst)) {
+            return { ...candidate, score: 0, matches: [] };
         }
 
-        const fallbackName = this.findClosestRealName(blueprint.constraints, blueprint.gender);
-        if (fallbackName) {
-            const fallbackApi = await this.lookupName(fallbackName);
-            if (fallbackApi) {
-                const explanation = `${blueprint.storyBuilder(fallbackName)}\n\nℹ️ ${fallbackName} ismi real bazadan topildi va ` +
-                    `ota-onadan olingan bo'g'inlarga eng yaqin moslik tufayli tanlandi.`;
-                return {
-                    name: fallbackName,
-                    api: fallbackApi,
-                    story: explanation,
-                };
+        matches.push('father-first');
+        score += 25;
+
+        if (dna.fatherPrefixTwo && lower.startsWith(dna.fatherPrefixTwo)) {
+            matches.push('father-prefix');
+            score += 25;
+        } else if (dna.fatherChunk && lower.includes(dna.fatherChunk)) {
+            matches.push('father-chunk');
+            score += 15;
+        }
+
+        if (dna.fatherLastTwo && lower.endsWith(dna.fatherLastTwo)) {
+            matches.push('father-suffix');
+            score += 15;
+        }
+
+        if (dna.motherLastTwo) {
+            if (lower.endsWith(dna.motherLastTwo)) {
+                matches.push('mother-suffix');
+                score += 25;
+            } else if (lower.includes(dna.motherLastTwo)) {
+                matches.push('mother-fragment');
+                score += 10;
             }
         }
 
-        return null;
-    }
-
-    /**
-     * Fallback ro'yxatidan mos ismni qidirish
-     */
-    private findClosestRealName(constraints: NameConstraints, gender: 'boy' | 'girl'): string | null {
-        const pool = gender === 'girl' ? this.FALLBACK_GIRL_NAMES : this.FALLBACK_BOY_NAMES;
-        const normalizedConstraints = {
-            prefix: constraints.prefix?.toLowerCase(),
-            suffix: constraints.suffix?.toLowerCase(),
-            includes: (constraints.includes ?? []).map((item) => item.toLowerCase()),
-        };
-
-        const scored = pool
-            .map((name) => {
-                const lower = name.toLowerCase();
-                let score = 0;
-
-                if (normalizedConstraints.prefix) {
-                    if (lower.startsWith(normalizedConstraints.prefix)) {
-                        score += 50;
-                    } else if (lower.includes(normalizedConstraints.prefix)) {
-                        score += 25;
-                    }
-                }
-
-                if (normalizedConstraints.suffix) {
-                    if (lower.endsWith(normalizedConstraints.suffix)) {
-                        score += 40;
-                    } else if (lower.includes(normalizedConstraints.suffix)) {
-                        score += 20;
-                    }
-                }
-
-                for (const chunk of normalizedConstraints.includes ?? []) {
-                    if (chunk && lower.includes(chunk)) {
-                        score += 10;
-                    }
-                }
-
-                return { name, score };
-            })
-            .filter((candidate) => candidate.score > 0)
-            .sort((a, b) => b.score - a.score);
-
-        return scored[0]?.name ?? null;
-    }
-
-    /**
-     * 🔡 Bo'g'inlardan ism yig'ish
-     */
-    private composeName(parts: string[]): string {
-        const raw = parts.filter(Boolean).join('');
-        if (!raw) {
-            return '';
+        if (dna.motherFirstTwo && lower.startsWith(dna.motherFirstTwo)) {
+            matches.push('mother-prefix');
+            score += 10;
         }
 
-        return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+        if (dna.motherFirst && lower.includes(dna.motherFirst)) {
+            matches.push('mother-first');
+            score += 5;
+        }
+
+        return { ...candidate, score, matches };
     }
 
-    /**
-     * 🌐 API dan ism ma'nosini olish
-     */
+    private buildStory(
+        name: string,
+        matches: string[],
+        fatherName: string,
+        motherName: string,
+        dna: ParentDNA,
+    ): string {
+        const parts: string[] = [];
+
+        if (matches.includes('father-prefix')) {
+            parts.push(`${name} ismi ${fatherName} boshidagi "${dna.fatherPrefixTwo.toUpperCase()}" bo'g'ini bilan boshlanishi tufayli otadan meros oldi.`);
+        } else if (matches.includes('father-chunk')) {
+            parts.push(`${name} – ${fatherName} ismidagi "${dna.fatherChunk.toUpperCase()}" tovushlari bilan bog'liq.`);
+        } else if (matches.includes('father-first')) {
+            parts.push(`Otaning birinchi harfi "${dna.fatherFirst.toUpperCase()}" ismda albatta aks etdi.`);
+        }
+
+        if (matches.includes('father-suffix')) {
+            parts.push(`Ism oxiri ${fatherName} oxiridagi "${dna.fatherLastTwo.toUpperCase()}" bilan tugadi.`);
+        }
+
+        if (matches.includes('mother-prefix')) {
+            parts.push(`Onaning "${dna.motherFirstTwo.toUpperCase()}" bo'g'ini ham boshlanishga ta'sir ko'rsatdi.`);
+        } else if (matches.includes('mother-first')) {
+            parts.push(`"${dna.motherFirst.toUpperCase()}" harfi onadan olindi.`);
+        }
+
+        if (matches.includes('mother-suffix')) {
+            parts.push(`Ism ${motherName} ismidagi oxirgi "${dna.motherLastTwo.toUpperCase()}" bo'g'ini bilan tugashi uchun tanlandi.`);
+        } else if (matches.includes('mother-fragment')) {
+            parts.push(`${motherName} ismidagi "${dna.motherLastTwo.toUpperCase()}" bo'g'ini nom ichida aks etdi.`);
+        }
+
+        parts.push('Natijada real ma\'lumot bazasida mavjud ism tanlandi.');
+        return parts.join(' ');
+    }
+
     private async lookupName(name: string): Promise<{ meaning: string; origin: string } | null> {
         try {
             const response = await firstValueFrom(
