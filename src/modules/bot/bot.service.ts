@@ -141,7 +141,7 @@ export class BotService {
     // Oferta button handler (for reply keyboard)
     this.botCoreService.bot.on('message:text', async (ctx) => {
       if (ctx.message.text === '📜 Oferta') {
-        await ctx.reply('📜 Oferta: https://telegra.ph/Ismlar-manosi-11-24');
+        await ctx.reply('<a href="https://telegra.ph/Ismlar-manosi-11-24">📜 Oferta (ommaviy oferta)</a>', { parse_mode: 'HTML' });
       }
     });
   }
