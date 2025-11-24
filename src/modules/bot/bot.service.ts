@@ -117,7 +117,7 @@ export class BotService {
       `🎯 <b>Shaxsiy Tavsiya</b> - Farzandingizga ism qo'yishga ikkilanyapsizmi?\n\n` +
       (hasAccess
         ? `✅ <b>Status:</b> VIP foydalanuvchi\n♾️ Barcha imkoniyatlar ochiq!\n\n`
-        : `💳 Bir martalik to'lov - 1,000 so'm\n🌟 Bir marta to'lov qiling va 10 yillik obunaga ega bo'ling.\n\n`) +
+        : `💳 Bir martalik to'lov - 77 777 so'm\n🌟 Bir marta to'lov qiling va 10 yillik obunaga ega bo'ling.\n\n`) +
       `📱 Pastdagi tugmalardan birini bosing yoki ismni yozing! `;
 
     // 🎹 Professional Reply Keyboard
@@ -127,6 +127,8 @@ export class BotService {
 
     if (!hasAccess) {
       keyboard.text('💳 Premium Obuna');
+      keyboard.row();
+      keyboard.text('📜 Oferta');
     }
 
     keyboard.resized();
@@ -134,6 +136,13 @@ export class BotService {
     await ctx.reply(welcomeMessage, {
       parse_mode: 'HTML',
       reply_markup: keyboard,
+    });
+
+    // Oferta button handler (for reply keyboard)
+    this.botCoreService.bot.on('message:text', async (ctx) => {
+      if (ctx.message.text === '📜 Oferta') {
+        await ctx.reply('📜 Oferta: https://telegra.ph/Ismlar-manosi-11-24');
+      }
     });
   }
 
@@ -160,6 +169,11 @@ export class BotService {
   }
 
   private async handleCallback(ctx: BotContext): Promise<void> {
+    // Handle Oferta reply keyboard button
+    if (ctx.message && ctx.message.text === '📜 Oferta') {
+      await this.handleOferta(ctx);
+      return;
+    }
     const data = ctx.callbackQuery?.data;
     if (!data) {
       await ctx.answerCallbackQuery();
