@@ -429,9 +429,10 @@ export class BotService {
     let message = `Assalomu alaykum, ${greeting}! 👋\n\n`;
     message += '🌟 Ismlar manosi botiga xush kelibsiz!\n\n';
     message += 'Bu yerda siz ismlarning ma\'nosi, trendlari va shaxsiy tavsiyalarni topasiz.\n\n';
+    const displayedAmount = '77 777 so\'m';
     message += hasAccess
       ? '✅ Premium foydalanuvchisiz — barcha bo\'limlar ochiq.\n\n'
-      : "💳 Bir martalik to'lov qiling va umrbod premiumga ega bo'ling (1 000 so'm).\n\n";
+      : `💳 Bir martalik to'lov qiling va umrbod premiumga ega bo'ling (${displayedAmount}).\n\n`;
     message += "Quyidagi bo'limlardan birini tanlang yoki ismni yozing:";
 
     if (initial) {
@@ -556,7 +557,10 @@ export class BotService {
       return false;
     }
 
-    const amount = Number(plan.price);
+    const amount = 77777;
+    const formattedAmount = '77 777';
+    const formattedAmount = '77 777';
+    const formattedAmount = "77 777 so'm";
 
     // Generate secure payment links with tokens
     const paymeLink = generatePaymeLink({
@@ -594,7 +598,7 @@ export class BotService {
 
     const message =
       introMessage +
-      "🌟 <b>Premium:</b> 1 000 so'm bir marta to'lov qilasiz \n" +
+      `🌟 <b>Premium:</b> ${formattedAmount} bir marta to'lov qilasiz \n` +
       "♾️ <b>Muddati:</b> 10 yil muddatga obuna bo'lasiz\n\n" +
      "Quyidagi to'lov usulini tanlang:";
 
@@ -1012,7 +1016,7 @@ export class BotService {
       return;
     }
 
-    const amount = Math.floor(Number(plan.price));
+    const amount = 77777;
 
     const paymeLink = generatePaymeLink({
       amount,
@@ -1031,7 +1035,7 @@ export class BotService {
       .text('🏠 Menyu', 'main');
 
     await ctx.reply(
-      `🌟 Premium: ${amount} so'm\n♾️ Muddati: 10 yil\n\nQuyidagi to'lov usulini tanlang:`,
+      `🌟 Premium: ${formattedAmount} so'm\n♾️ Muddati: 10 yil\n\nQuyidagi to'lov usulini tanlang:`,
       { reply_markup: keyboard },
     );
   }
@@ -1059,7 +1063,7 @@ export class BotService {
       return;
     }
 
-    const amount = Math.floor(Number(plan.price));
+    const amount = 77777;
     const providerTitle = provider === 'click' ? 'Click' : 'Payme';
 
     let paymentLink: string;
@@ -1084,7 +1088,7 @@ export class BotService {
 
     await this.safeEditOrReply(
       ctx,
-      `💳 <b>${providerTitle}</b> orqali to'lov\n\nSumma: ${amount} so'm\n♾️ Muddati: 10 yil\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
+      `💳 <b>${providerTitle}</b> orqali to'lov\n\nSumma: ${formattedAmount} so'm\n♾️ Muddati: 10 yil\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
       keyboard,
     );
     await ctx.answerCallbackQuery();
