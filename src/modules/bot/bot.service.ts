@@ -137,13 +137,6 @@ export class BotService {
       parse_mode: 'HTML',
       reply_markup: keyboard,
     });
-
-    // Oferta button handler (for reply keyboard)
-    this.botCoreService.bot.on('message:text', async (ctx) => {
-      if (ctx.message.text === '📜 Oferta') {
-        await ctx.reply('<a href="https://telegra.ph/Ismlar-manosi-11-24">📜 Oferta (ommaviy oferta)</a>', { parse_mode: 'HTML' });
-      }
-    });
   }
 
   private async handleAdmin(ctx: BotContext): Promise<void> {
@@ -336,6 +329,7 @@ export class BotService {
       return;
     }
 
+
     // Handle reply keyboard button presses
     switch (text) {
       case '🔍 Ism Ma\'nosi':
@@ -372,6 +366,9 @@ export class BotService {
         return;
       case '💳 Premium Obuna':
         await this.showOnetimePayment(ctx);
+        return;
+      case '📜 Oferta':
+        await ctx.reply('<a href="https://telegra.ph/Ismlar-manosi-11-24">📜 Oferta (ommaviy oferta)</a>', { parse_mode: 'HTML' });
         return;
     }
 
