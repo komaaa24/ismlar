@@ -13,6 +13,7 @@ import {
   SubscriptionType,
   SubscriptionStatus,
   PaymentType,
+  PaymentStatus,
 } from 'src/shared/database/entities';
 import {
   expandCompactUuid,
@@ -431,6 +432,15 @@ export class ClickOnetimeService {
           user.id,
           plan.id,
           36500, // 100 years in days = lifetime
+          PaymentProvider.CLICK,
+          {
+            subscriptionId: subscription.id,
+            transactionId: transaction.transId,
+            amount: Number(transaction.amount),
+            currency: 'UZS',
+            paymentMethod: PaymentProvider.CLICK,
+            status: PaymentStatus.COMPLETED,
+          },
         );
       } catch (notificationError) {
         this.logger.error(

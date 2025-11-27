@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository, MoreThan, Between } from 'typeorm';
 import { Context } from 'grammy';
 import {
     UserEntity,
@@ -174,9 +174,7 @@ export class AdminService {
             const clickPayments = paidTransactions.filter(t => t.provider === 'click').length;
             const paymePayments = paidTransactions.filter(t => t.provider === 'payme').length;
 
-            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            // 📊 ACTIVITY STATISTICS
-            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            
 
             // Bot Commands
             const startCommands = await this.activityRepository.count({
@@ -446,15 +444,25 @@ export class AdminService {
 
             let message = '📅 <b>KUNLIK STATISTIKA (7 kun)</b>\n\n';
 
-            dailyStats.forEach(day => {
-                message += `📆 <b>${day.date}</b>\n`;
-                message += `├ /start: ${day.startCommands}\n`;
-                message += `├ 🔍 Ism Ma'nosi: ${day.nameMeaningClicks}\n`;
-                message += `├ 🎯 Shaxsiy Tavsiya: ${day.personalTavsiyaClicks}\n`;
-                message += `├ 📜 Oferta: ${day.ofertaClicks}\n`;
-                message += `├ 💳 Payme: ${day.paymeClicks}\n`;
-                message += `└ 🟢 Click: ${day.clickClicks}\n\n`;
-            });
+            for (const day of dailyStats) {
+                const dailyPayments = await this.transactionRepository.count({
+                    where: {
+                        status: TransactionStatus.PAID,
+                        performTime: Between(day.startDate, day.endDate),
+                    },
+                });
+
+                message += `📆 <b>${day.dateLabel}</b>\n`;
+                message += `├ /start tugmasini bosganlar: ${day.startCommands}\n`;
+                message += `├ 🔍 Ism Ma'nosi tugmasini bosganlar: ${day.nameMeaningClicks}\n`;
+                message += `├ 🎯 Shaxsiy Tavsiya tugmasini bosganlar: ${day.personalTavsiyaClicks}\n`;
+                message += `├ 📜 Oferta tugmasini bosganlar: ${day.ofertaClicks}\n`;
+                message += `├ 💳 Payme tugmasini bosganlar: ${day.paymeClicks}\n`;
+                message += `└ 🟢 Click tugmasini bosganlar: ${day.clickClicks}\n`;
+                message += dailyPayments > 0
+                    ? `   💰 To'lovlar: ${dailyPayments}\n\n`
+                    : `   💰 To'lov qilinmagan\n\n`;
+            }
 
             await ctx.reply(message, { parse_mode: 'HTML' });
         } catch (error) {

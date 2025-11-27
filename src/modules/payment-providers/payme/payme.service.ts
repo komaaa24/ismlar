@@ -24,6 +24,7 @@ import {
   PaymentProvider,
   TransactionStatus,
   PaymentType,
+  PaymentStatus,
 } from '../../../shared/database/entities/enums';
 import { ConfigService } from '@nestjs/config';
 import { BotService } from '../../bot/bot.service';
@@ -646,6 +647,15 @@ export class PaymeService {
             user.id,
             plan.id,
             36500, // 100 years in days = lifetime
+            PaymentProvider.PAYME,
+            {
+              subscriptionId: plan.id,
+              transactionId: performTransactionDto.params.id,
+              amount: Number(transaction.amount),
+              currency: 'UZS',
+              paymentMethod: PaymentProvider.PAYME,
+              status: PaymentStatus.COMPLETED,
+            },
           );
         } catch (notificationError) {
           logger.error(

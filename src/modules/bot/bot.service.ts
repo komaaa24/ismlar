@@ -11,8 +11,9 @@ import { UserPersonaService } from './services/user-persona.service';
 import { AdminService } from './services/admin.service';
 import { UserEntity } from '../../shared/database/entities/user.entity';
 import { PlanEntity } from '../../shared/database/entities/plan.entity';
+import { UserPaymentEntity } from '../../shared/database/entities/user-payment.entity';
 import { TargetGender } from '../../shared/database/entities/user-persona-profile.entity';
-import { ActivityType } from '../../shared/database/entities';
+import { ActivityType, PaymentStatus } from '../../shared/database/entities';
 import { generatePaymeLink } from '../../shared/generators/payme-link.generator';
 import { generateClickOnetimeLink } from '../../shared/generators/click-onetime-link.generator';
 import { ActivityTrackerService } from './services/activity-tracker.service';
@@ -39,6 +40,8 @@ export class BotService {
     private readonly userRepository: Repository<UserEntity>,
     @InjectRepository(PlanEntity)
     private readonly planRepository: Repository<PlanEntity>,
+    @InjectRepository(UserPaymentEntity)
+    private readonly userPaymentRepository: Repository<UserPaymentEntity>,
     private readonly nameMeaningService: NameMeaningService,
     @Inject(forwardRef(() => NameInsightsService))
     private readonly insightsService: NameInsightsService,
@@ -1135,6 +1138,14 @@ export class BotService {
     planId: string,
     durationDays: number,
     selectedService?: string,
+    paymentInfo?: {
+      subscriptionId?: string;
+      transactionId?: string;
+      amount?: number;
+      currency?: string;
+      paymentMethod?: string;
+      status?: PaymentStatus;
+    },
   ): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     const plan = await this.planRepository.findOne({ where: { id: planId } });
@@ -1157,6 +1168,32 @@ export class BotService {
         ActivityType.PAYMENT_SUCCESS,
         { planId, amount: plan?.price, provider: selectedService },
         user.id
+      );
+    }
+
+    // Persist payment in user_payments for auditing
+    try {
+      const subscriptionId = paymentInfo?.subscriptionId ?? planId;
+      if (subscriptionId) {
+        await this.userPaymentRepository.save({
+          userId: user.id,
+          subscriptionId,
+          amount: paymentInfo?.amount ?? Number(plan?.price ?? 0),
+          currency: paymentInfo?.currency ?? 'UZS',
+          paymentMethod: paymentInfo?.paymentMethod ?? selectedService ?? 'unknown',
+          transactionId: paymentInfo?.transactionId,
+          status: paymentInfo?.status ?? PaymentStatus.COMPLETED,
+          paymentDate: new Date(),
+        });
+      } else {
+        this.logger.warn(
+          `handleSubscriptionSuccess: skip saving payment, missing subscriptionId for user ${user.id}`,
+        );
+      }
+    } catch (paymentError) {
+      this.logger.error(
+        `Failed to persist payment for user ${user.id} and plan ${planId}`,
+        paymentError as any,
       );
     }
 

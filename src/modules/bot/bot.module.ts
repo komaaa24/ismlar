@@ -9,6 +9,7 @@ import {
   UserPersonaProfileEntity,
   TransactionEntity,
   ActivityLogEntity,
+  UserPaymentEntity,
 } from '../../shared/database/entities';
 import { NameMeaningService } from './services/name-meaning.service';
 import { BotCoreService } from './services/bot-core.service';
@@ -28,6 +29,7 @@ import { ActivityTrackerService } from './services/activity-tracker.service';
       UserPersonaProfileEntity,
       TransactionEntity,
       ActivityLogEntity,
+      UserPaymentEntity,
     ]),
     HttpModule,
   ],

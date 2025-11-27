@@ -207,7 +207,9 @@ export class ActivityTrackerService {
 
     async getDailyStats(days: number = 7) {
         const stats: Array<{
-            date: string;
+            dateLabel: string;
+            startDate: Date;
+            endDate: Date;
             startCommands: number;
             nameMeaningClicks: number;
             personalTavsiyaClicks: number;
@@ -271,7 +273,9 @@ export class ActivityTrackerService {
             ]);
 
             stats.push({
-                date: date.toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit' }),
+                dateLabel: date.toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit' }),
+                startDate: date,
+                endDate: nextDay,
                 startCommands,
                 nameMeaningClicks,
                 personalTavsiyaClicks,
