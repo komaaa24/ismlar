@@ -581,7 +581,7 @@ export class BotService {
       return false;
     }
 
-    const amount = 9999;
+    const amount = Number(plan.price ?? 0) || 9999;
     const formattedAmount = amount.toLocaleString('ru-RU');
 
     // Generate secure payment links with tokens
@@ -1041,7 +1041,7 @@ export class BotService {
     }
 
 
-    const amount = 9999;
+    const amount = Number(plan.price ?? 0) || 9999;
     const formattedAmount = amount.toLocaleString('ru-RU');
 
     const keyboard = new InlineKeyboard()
@@ -1081,7 +1081,7 @@ export class BotService {
       return;
     }
 
-    const amount = 9999;
+    const amount = Number(plan.price ?? 0) || 9999;
     const formattedAmount = amount.toLocaleString('ru-RU');
     const providerTitle = provider === 'click' ? 'Click' : 'Payme';
 
