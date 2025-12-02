@@ -120,7 +120,7 @@ export class BotService {
       `🎯 <b>Shaxsiy Tavsiya</b> - Farzandingizga ism qo'yishga ikkilanyapsizmi?\n\n` +
       (hasAccess
         ? `✅ <b>Status:</b> VIP foydalanuvchi\n♾️ Barcha imkoniyatlar ochiq!\n\n`
-        : `💳 Bir martalik to'lov - 77 777 so'm\n🌟 Bir marta to'lov qiling va 10 yillik obunaga ega bo'ling.\n\n`) +
+        : `💳 Bir martalik to'lov - 9 999 so'm\n🌟 Bir marta to'lov qiling va 1 yillik obunaga ega bo'ling.\n\n`) +
       `📱 Pastdagi tugmalardan birini bosing yoki ismni yozing! `;
 
     // 🎹 Professional Reply Keyboard
@@ -453,7 +453,7 @@ export class BotService {
     let message = `Assalomu alaykum, ${greeting}! 👋\n\n`;
     message += '🌟 Ismlar manosi botiga xush kelibsiz!\n\n';
     message += 'Bu yerda siz ismlarning ma\'nosi, trendlari va shaxsiy tavsiyalarni topasiz.\n\n';
-    const displayedAmount = '77 777 so\'m';
+    const displayedAmount = '9 999 so\'m';
     message += hasAccess
       ? '✅ Premium foydalanuvchisiz — barcha bo\'limlar ochiq.\n\n'
       : `💳 Bir martalik to'lov qiling va umrbod premiumga ega bo'ling (${displayedAmount}).\n\n`;
@@ -581,7 +581,7 @@ export class BotService {
       return false;
     }
 
-    const amount = 77777;
+    const amount = 9999;
     const formattedAmount = amount.toLocaleString('ru-RU');
 
     // Generate secure payment links with tokens
@@ -623,7 +623,7 @@ export class BotService {
     const message =
       introMessage +
       `🌟 <b>Premium:</b> ${formattedAmount} so'm bir marta to'lov qilasiz \n` +
-      "♾️ <b>Muddati:</b> 10 yil muddatga obuna bo'lasiz\n\n" +
+      "♾️ <b>Muddati:</b> 1 yil muddatga obuna bo'lasiz\n\n" +
       "Quyidagi to'lov usulini tanlang:";
 
     await ctx.reply(message, { reply_markup: keyboard, parse_mode: 'HTML' });
@@ -1041,7 +1041,7 @@ export class BotService {
     }
 
 
-    const amount = 77777;
+    const amount = 9999;
     const formattedAmount = amount.toLocaleString('ru-RU');
 
     const keyboard = new InlineKeyboard()
@@ -1053,7 +1053,7 @@ export class BotService {
       .text('🏠 Menyu', 'main');
 
     await ctx.reply(
-      `🌟 Premium: ${formattedAmount} so'm\n♾️ Muddati: 10 yil\n\nQuyidagi to'lov usulini tanlang:`,
+      `🌟 Premium: ${formattedAmount} so'm\n♾️ Muddati: 1 yil\n\nQuyidagi to'lov usulini tanlang:`,
       { reply_markup: keyboard },
     );
   }
@@ -1081,7 +1081,7 @@ export class BotService {
       return;
     }
 
-    const amount = 77777;
+    const amount = 9999;
     const formattedAmount = amount.toLocaleString('ru-RU');
     const providerTitle = provider === 'click' ? 'Click' : 'Payme';
 
@@ -1107,7 +1107,7 @@ export class BotService {
 
     await this.safeEditOrReply(
       ctx,
-      `💳 <b>${providerTitle}</b> orqali to'lov\n\nSumma: ${formattedAmount} so'm\n♾️ Muddati: 10 yil\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
+      `💳 <b>${providerTitle}</b> orqali to'lov\n\nSumma: ${formattedAmount} so'm\n♾️ Muddati: 1 yil\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
       keyboard,
     );
     await ctx.answerCallbackQuery();
@@ -1204,7 +1204,7 @@ export class BotService {
     const message =
       '🎉 <b>Tabriklaymiz!</b>\n\n' +
       "✅ To'lov muvaffaqiyatli amalga oshirildi.\n\n" +
-      "🌟 Siz 10 yillik obunaga ega bo'ldingiz.\n\n" +
+      "🌟 Siz 1 yillik obunaga ega bo'ldingiz.\n\n" +
       "✍️ Istalgan ismni yozing va darhol ma'nosini bilib oling.";
 
     await this.bot.api.sendMessage(user.telegramId, message, {

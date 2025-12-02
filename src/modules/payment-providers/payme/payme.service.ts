@@ -618,11 +618,11 @@ export class PaymeService {
 
     try {
       if (user && plan) {
-        // Foydalanuvchini VIP qilish (umrbod obuna)
+        // Foydalanuvchini VIP qilish (1 yillik obuna)
         const subscriptionEndDate = new Date();
         subscriptionEndDate.setFullYear(
-          subscriptionEndDate.getFullYear() + 100,
-        ); // 100 yil (umrbod)
+          subscriptionEndDate.getFullYear() + 1,
+        ); // 1 yil
 
         await this.userRepository.update(
           { id: user.id },
@@ -646,7 +646,7 @@ export class PaymeService {
           await this.botService.handleSubscriptionSuccess(
             user.id,
             plan.id,
-            36500, // 100 years in days = lifetime
+            365, // 1 yil (kunlarda)
             PaymentProvider.PAYME,
             {
               subscriptionId: plan.id,

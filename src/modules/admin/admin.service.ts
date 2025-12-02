@@ -121,7 +121,7 @@ export class AdminService {
         }
 
         const subscriptionEndDate = new Date();
-        subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 100); // 100 years
+        subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 1); // 1 yil
 
         await this.userRepository.update(
             { id: userId },
@@ -145,7 +145,7 @@ export class AdminService {
                 user.telegramId,
                 `🎉 <b>Tabriklaymiz!</b>\n\n` +
                 `✅ To'lov muvaffaqiyatli amalga oshirildi.\n` +
-                `🌟 Siz 10 yillik obunaga ega bo'ldingiz.\n\n` +
+                `🌟 Siz 1 yillik obunaga ega bo'ldingiz.\n\n` +
                 `✍️ Istalgan ismni yozing va darhol ma'nosini bilib oling.`,
                 { parse_mode: 'HTML' },
             );

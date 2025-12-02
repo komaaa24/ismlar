@@ -449,7 +449,7 @@ export class ClickService {
     // Foydalanuvchini VIP qilish (umrbod obuna)
     if (transaction && transaction.userId && plan) {
       const subscriptionEndDate = new Date();
-      subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 100); // 100 yil (umrbod)
+      subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 1); // 1 yil
 
       await this.userRepository.update(
         { id: transaction.userId },
@@ -474,7 +474,7 @@ export class ClickService {
           `🎉 <b>Tabriklaymiz!</b>\n\n` +
             `✅ To'lov muvaffaqiyatli amalga oshirildi!\n` +
             `💰 Summa: ${plan.price} so'm\n\n` +
-            `🌟 Siz 10 yillik obunaga ega bo'ldingiz.\n\n` +
+            `🌟 Siz 1 yillik obunaga ega bo'ldingiz.\n\n` +
             `✍️ Istalgan ismni yozing va darhol ma'nosini bilib oling.`,
           { parse_mode: 'HTML' },
         );

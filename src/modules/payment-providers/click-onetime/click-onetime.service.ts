@@ -383,7 +383,7 @@ export class ClickOnetimeService {
       // Step 5: Activate user subscription (lifetime access for one-time payment)
       const startDate = new Date();
       const endDate = new Date();
-      endDate.setFullYear(endDate.getFullYear() + 100); // 100 years = lifetime
+      endDate.setFullYear(endDate.getFullYear() + 1); // 1 yil
 
       user.isActive = true;
       user.subscriptionStart = startDate;
@@ -431,7 +431,7 @@ export class ClickOnetimeService {
         await this.botService.handleSubscriptionSuccess(
           user.id,
           plan.id,
-          36500, // 100 years in days = lifetime
+          365, // 1 yil (kunlarda)
           PaymentProvider.CLICK,
           {
             subscriptionId: subscription.id,

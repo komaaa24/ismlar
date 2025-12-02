@@ -103,7 +103,7 @@ export class AdminService {
             '/users_active - Eng faol foydalanuvchilar\n' +
             '/daily - Kunlik statistika (7 kun)\n\n' +
             '<b>👥 Boshqaruv:</b>\n' +
-            '/grant <telegram_id> - 10 yillik obuna berish\n' +
+            '/grant <telegram_id> - 1 yillik obuna berish\n' +
             '/find <telegram_id> - Foydalanuvchini topish',
             { parse_mode: 'HTML' }
         );
@@ -539,7 +539,7 @@ export class AdminService {
             }
 
             const subscriptionEndDate = new Date();
-            subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 10);
+            subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 1);
 
             await this.userRepository.update(
                 { id: user.id },
@@ -559,7 +559,7 @@ export class AdminService {
                 `✅ <b>Muvaffaqiyatli!</b>\n\n` +
                 `Foydalanuvchi: ${user.firstName || 'Unknown'}\n` +
                 `Telegram ID: ${user.telegramId}\n` +
-                `Status: <b>VIP (10 yillik)</b> ♾️`,
+                `Status: <b>VIP (1 yillik)</b> ♾️`,
                 { parse_mode: 'HTML' }
             );
 
@@ -569,7 +569,7 @@ export class AdminService {
                     user.telegramId,
                     `🎉 <b>Tabriklaymiz!</b>\n\n` +
                     `✅ To'lov muvaffaqiyatli amalga oshirildi.\n` +
-                    `🌟 Siz 10 yillik obunaga ega bo'ldingiz.\n\n` +
+                    `🌟 Siz 1 yillik obunaga ega bo'ldingiz.\n\n` +
                     `✍️ Istalgan ismni yozing va darhol ma'nosini bilib oling.`,
                     { parse_mode: 'HTML' },
                 );
@@ -705,3 +705,22 @@ export class AdminService {
         }
     }
 }
+
+
+// LEFT JOIN users u ON u.id = a.user_id
+// WHERE a.activityType = 'name_searched'
+//   AND a.createdAt BETWEEN :start AND :end
+
+// subscribed = SUM(
+//   CASE WHEN u.isActive = true
+//         AND u.subscriptionEnd IS NOT NULL
+//         AND u.subscriptionEnd > NOW()
+//        THEN 1 ELSE 0 END
+// )
+
+// nonSubscribed = SUM(
+//   CASE WHEN u.isActive = false
+//         OR u.subscriptionEnd IS NULL
+//         OR u.subscriptionEnd <= NOW()
+//        THEN 1 ELSE 0 END
+// )

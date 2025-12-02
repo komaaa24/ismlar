@@ -287,7 +287,7 @@
                 <p id="userStatus"><strong>Status:</strong> -</p>
                 <p id="userSub"><strong>Obuna:</strong> -</p>
                 <div style="margin-top: 15px; display: flex; gap: 10px;">
-                    <button class="btn btn-success" onclick="grantSubscription()">✅ 10 yillik obuna berish</button>
+                    <button class="btn btn-success" onclick="grantSubscription()">✅ 1 yillik obuna berish</button>
                     <button class="btn btn-danger" onclick="revokeSubscription()">🚫 Obunani Bekor Qilish</button>
                 </div>
             </div>
@@ -414,7 +414,7 @@
                     throw new Error('Obuna berishda xatolik');
                 }
 
-                showMessage('✅ 10 yillik obuna muvaffaqiyatli berildi!', 'success');
+                showMessage('✅ 1 yillik obuna muvaffaqiyatli berildi!', 'success');
                 await searchUser(); // Refresh user info
                 await loadStats(); // Refresh stats
             } catch (error) {

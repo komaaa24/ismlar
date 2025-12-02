@@ -233,9 +233,9 @@ export class UzcardOnetimeApiService {
 
       logger.info(`Card details: ${JSON.stringify(cardDetails)}`);
 
-      // Foydalanuvchini VIP qilish (umrbod obuna)
+      // Foydalanuvchini VIP qilish (1 yillik obuna)
       const subscriptionEndDate = new Date();
-      subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 100); // 100 yil (umrbod)
+      subscriptionEndDate.setFullYear(subscriptionEndDate.getFullYear() + 1); // 1 yil
 
       await this.userRepository.update(
         { id: user.id },
@@ -251,7 +251,7 @@ export class UzcardOnetimeApiService {
         planId: transaction.planId,
         subscriptionType: SubscriptionType.ONETIME,
         startDate: new Date(),
-        endDate: subscriptionEndDate, // umrbod obuna
+        endDate: subscriptionEndDate, // 1 yillik obuna
         isActive: true,
         autoRenew: false,
         status: SubscriptionStatus.ACTIVE,
@@ -278,7 +278,7 @@ export class UzcardOnetimeApiService {
             `🎉 <b>Tabriklaymiz!</b>\n\n` +
               `✅ UzCard orqali to'lov muvaffaqiyatli amalga oshirildi!\n` +
               `💰 Summa: ${cardDetails.amount} so'm\n\n` +
-              `🌟 Siz 10 yillik obunaga ega bo'ldingiz.\n\n` +
+            `🌟 Siz 1 yillik obunaga ega bo'ldingiz.\n\n` +
               `✍️ Istalgan ismni yozing va darhol ma'nosini bilib oling.`,
             { parse_mode: 'HTML' },
           );
