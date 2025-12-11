@@ -482,11 +482,9 @@ export class BotService {
   }
 
   private async processNameMeaning(ctx: BotContext, name: string): Promise<void> {
-    const hasAccess = await this.ensurePaidAccess(ctx, { requestedName: name });
-    if (!hasAccess) {
-      return;
-    }
-
+    // Allow everyone to query name meanings without requiring premium.
+    // Previously this function enforced ensurePaidAccess; that check was removed
+    // so free users can get name meanings immediately.
     await ctx.replyWithChatAction('typing');
     const { record, meaning, error } = await this.insightsService.getRichNameMeaning(name);
 
@@ -1098,13 +1096,13 @@ export class BotService {
     const paymentLink =
       provider === 'click'
         ? generateClickOnetimeLink(user.id, plan.id, amount, {
-            planCode: plan.selectedName ?? plan.name ?? plan.id,
-          })
+          planCode: plan.selectedName ?? plan.name ?? plan.id,
+        })
         : generatePaymeLink({
-            amount,
-            planId: plan.id,
-            userId: user.id,
-          });
+          amount,
+          planId: plan.id,
+          userId: user.id,
+        });
 
     const keyboard = new InlineKeyboard()
       .url("💳 To'lovga o'tish", paymentLink)
