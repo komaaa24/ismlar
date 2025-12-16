@@ -922,9 +922,14 @@ export class BotService {
     const totalPages = Math.ceil(suggestions.length / NAMES_PER_PAGE);
     const pageInfo = suggestions.length > NAMES_PER_PAGE ? `\n\n📄 Sahifa 1/${totalPages}` : '';
 
+    // Ota-ona ismlari asosida yaratilgan bo'lsa, qo'shimcha ma'lumot ko'rsatish
+    const parentInfo = (parentNames && parentNames.length >= 2)
+      ? `Ota: <b>${parentNames[0]}</b>, Ona: <b>${parentNames[1]}</b> asosida yaratilgan${pageInfo}\n\n`
+      : `${pageInfo}\n\n`;
+
     await this.safeEditOrReply(
       ctx,
-      `🎯 Profil: <b>${personaInfo.label}</b>\n${personaInfo.summary}${pageInfo}\n\n${lines.join('\n')}`,
+      `🎯 Shaxsiy tavsiyalar\n${parentInfo}${lines.join('\n')}`,
       keyboard,
     );
 
