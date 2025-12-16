@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan } from 'typeorm';
-import { Context } from 'grammy';
+import { Context, InputFile } from 'grammy';
 import {
     UserEntity,
     TransactionEntity,
     ActivityLogEntity,
     ActivityType,
+    RequestedNameEntity,
 } from '../../../shared/database/entities';
 import { TransactionStatus } from '../../../shared/database/entities/enums';
 import logger from '../../../shared/utils/logger';
@@ -24,6 +25,8 @@ export class AdminService {
         private readonly transactionRepository: Repository<TransactionEntity>,
         @InjectRepository(ActivityLogEntity)
         private readonly activityRepository: Repository<ActivityLogEntity>,
+        @InjectRepository(RequestedNameEntity)
+        private readonly requestedNameRepository: Repository<RequestedNameEntity>,
         private readonly activityTracker: ActivityTrackerService,
     ) { }
 
@@ -59,6 +62,10 @@ export class AdminService {
 
             case 'daily':
                 await this.sendDailyStats(ctx);
+                break;
+
+            case 'ismlar':
+                await this.showRequestedNames(ctx);
                 break;
 
             case 'grant':
@@ -101,7 +108,8 @@ export class AdminService {
             '/activity - Faollik statistikasi\n' +
             '/funnel - To\'lov voronkasi\n' +
             '/users_active - Eng faol foydalanuvchilar\n' +
-            '/daily - Kunlik statistika (7 kun)\n\n' +
+            '/daily - Kunlik statistika (7 kun)\n' +
+            '/ismlar - Ma\'lumotlar bazasida yo\'q ismlar\n\n' +
             '<b>👥 Boshqaruv:</b>\n' +
             '/grant <telegram_id> - 1 yillik obuna berish\n' +
             '/find <telegram_id> - Foydalanuvchini topish',
@@ -174,7 +182,7 @@ export class AdminService {
             const clickPayments = paidTransactions.filter(t => t.provider === 'click').length;
             const paymePayments = paidTransactions.filter(t => t.provider === 'payme').length;
 
-            
+
 
             // Bot Commands
             const startCommands = await this.activityRepository.count({
@@ -703,6 +711,127 @@ export class AdminService {
             logger.error('Find user error:', error);
             await ctx.reply('❌ Foydalanuvchini topishda xatolik!');
         }
+    }
+
+    private async showRequestedNames(ctx: Context): Promise<void> {
+        try {
+            const requestedNames = await this.requestedNameRepository.find({
+                where: { isProcessed: false },
+                order: { requestCount: 'DESC', createdAt: 'DESC' },
+            });
+
+            if (requestedNames.length === 0) {
+                await ctx.reply('✅ Ma\'lumotlar bazasida yo\'q ismlar topilmadi!');
+                return;
+            }
+
+            // 1. Jadval formatida xabar yuborish
+            let message = '📋 <b>Ma\'lumotlar bazasida yo\'q ismlar</b>\n\n';
+            message += `Jami: ${requestedNames.length} ta ism\n\n`;
+            message += '<pre>';
+            message += '┌─────┬─────────────────┬─────────┬──────────────────┬────────────┐\n';
+            message += '│ №   │ Ism             │ So\'rov  │ Username         │ Sana       │\n';
+            message += '├─────┼─────────────────┼─────────┼──────────────────┼────────────┤\n';
+
+            // Faqat birinchi 20 ta ismni jadvalda ko'rsatish
+            const displayItems = requestedNames.slice(0, 20);
+            displayItems.forEach((item, index) => {
+                const num = String(index + 1).padEnd(3);
+                const name = item.name.padEnd(15).substring(0, 15);
+                const count = String(item.requestCount).padEnd(7);
+                const username = (item.lastRequestedByUsername || 'N/A').padEnd(16).substring(0, 16);
+                const date = new Date(item.updatedAt).toLocaleDateString('uz-UZ').padEnd(10);
+
+                message += `│ ${num} │ ${name} │ ${count} │ ${username} │ ${date} │\n`;
+            });
+
+            message += '└─────┴─────────────────┴─────────┴──────────────────┴────────────┘\n';
+            message += '</pre>\n\n';
+
+            if (requestedNames.length > 20) {
+                message += `<i>Ko'rsatilgan: 20 / ${requestedNames.length}</i>\n\n`;
+            }
+
+            message += '💡 To\'liq ro\'yxatni CSV fayl ko\'rinishida yuklab olish uchun kuting...';
+
+            await ctx.reply(message, { parse_mode: 'HTML' });
+
+            // 2. CSV fayl yaratish va yuborish
+            await this.sendRequestedNamesCSV(ctx, requestedNames);
+
+        } catch (error) {
+            logger.error('Show requested names error:', error);
+            await ctx.reply('❌ Ismlarni olishda xatolik!');
+        }
+    }
+
+    private async sendRequestedNamesCSV(ctx: Context, requestedNames: RequestedNameEntity[]): Promise<void> {
+        try {
+            // CSV kontentini yaratish
+            let csvContent = 'No,Ism,Soralar_soni,Oxirgi_sorovchi,Telegram_ID,Oxirgi_sorov_sanasi,Yaratilgan_sana\n';
+
+            requestedNames.forEach((item, index) => {
+                const num = index + 1;
+                const name = this.escapeCsvValue(item.name);
+                const count = item.requestCount;
+                const username = this.escapeCsvValue(item.lastRequestedByUsername || 'N/A');
+                const telegramId = item.lastRequestedBy || 'N/A';
+                const updatedDate = new Date(item.updatedAt).toISOString().split('T')[0];
+                const createdDate = new Date(item.createdAt).toISOString().split('T')[0];
+
+                csvContent += `${num},${name},${count},${username},${telegramId},${updatedDate},${createdDate}\n`;
+            });
+
+            // Fayl nomini yaratish
+            const today = new Date().toISOString().split('T')[0];
+            const filename = `yoq_ismlar_${today}.csv`;
+
+            // Buffer yaratish
+            const buffer = Buffer.from(csvContent, 'utf-8');
+
+            // Faylni yuborish (Grammy API format)
+            await ctx.replyWithDocument(
+                new InputFile(buffer, filename),
+                {
+                    caption: `📊 <b>Ma'lumotlar bazasida yo'q ismlar</b>\n\nJami: ${requestedNames.length} ta ism\nSana: ${today}`,
+                    parse_mode: 'HTML',
+                }
+            );
+
+        } catch (error) {
+            logger.error('Send CSV error:', error);
+            await ctx.reply('❌ CSV faylini yuborishda xatolik!');
+        }
+    }
+
+    private escapeCsvValue(value: string): string {
+        // CSV uchun maxsus belgilarni escape qilish
+        if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+            return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value;
+    }
+
+    private splitMessage(text: string, maxLength: number): string[] {
+        const messages: string[] = [];
+        const lines = text.split('\n');
+        let currentMessage = '';
+
+        for (const line of lines) {
+            if ((currentMessage + line + '\n').length > maxLength) {
+                if (currentMessage) {
+                    messages.push(currentMessage);
+                    currentMessage = '';
+                }
+            }
+            currentMessage += line + '\n';
+        }
+
+        if (currentMessage) {
+            messages.push(currentMessage);
+        }
+
+        return messages;
     }
 }
 

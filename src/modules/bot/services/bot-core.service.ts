@@ -13,6 +13,8 @@ interface SessionData {
   favoritesPage?: number;
   quizAnswers?: Record<string, string>;
   quizTags?: string[];
+  generatedNames?: any[];
+  currentPage?: number;
 }
 
 export type BotContext = Context & SessionFlavor<SessionData>;

@@ -9,7 +9,6 @@ import {
 export interface PersonaPayload {
   expectedBirthDate?: Date;
   targetGender?: TargetGender;
-  familyName?: string;
   parentNames?: string[];
   focusValues?: string[];
   personaType?: string;
@@ -21,7 +20,7 @@ export class UserPersonaService {
   constructor(
     @InjectRepository(UserPersonaProfileEntity)
     private readonly personaRepository: Repository<UserPersonaProfileEntity>,
-  ) {}
+  ) { }
 
   async getProfile(userId: string): Promise<UserPersonaProfileEntity | null> {
     return this.personaRepository.findOne({ where: { userId } });
@@ -44,7 +43,6 @@ export class UserPersonaService {
       userId,
       expectedBirthDate: payload.expectedBirthDate,
       targetGender: payload.targetGender ?? 'unknown',
-      familyName: payload.familyName,
       parentNames: payload.parentNames,
       focusValues: payload.focusValues,
       personaType: payload.personaType,

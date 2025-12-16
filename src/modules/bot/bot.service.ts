@@ -281,9 +281,15 @@ export class BotService {
         flow.payload.targetGender = gender;
         flow.step = 3;
         await ctx.editMessageText(
-          '👪 Familiyangizni kiriting yoki <i>skip</i> deb yozing.',
+          '�‍👩‍👦 Ota-ona ismlarini vergul bilan kiriting yoki <i>skip</i> deb yozing.',
           { parse_mode: 'HTML' },
         );
+        await ctx.answerCallbackQuery();
+        break;
+      }
+      case 'next': {
+        // Keyingi sahifaga o'tish
+        await this.showNextPersonalizedNames(ctx);
         await ctx.answerCallbackQuery();
         break;
       }
@@ -292,7 +298,45 @@ export class BotService {
     }
   }
 
+  private async showNextPersonalizedNames(ctx: BotContext): Promise<void> {
+    const generatedNames = ctx.session.generatedNames || [];
+    const currentPage = (ctx.session.currentPage || 0) + 1;
+    ctx.session.currentPage = currentPage;
 
+    const NAMES_PER_PAGE = 2;
+    const startIndex = currentPage * NAMES_PER_PAGE;
+    const endIndex = startIndex + NAMES_PER_PAGE;
+    const pageNames = generatedNames.slice(startIndex, endIndex);
+
+    if (pageNames.length === 0) {
+      await ctx.answerCallbackQuery('Boshqa ismlar yo\'q');
+      return;
+    }
+
+    const lines = pageNames.map((item: any, index: number) => {
+      const emoji = item.gender === 'girl' ? '👧' : '👦';
+      return `${startIndex + index + 1}. ${emoji} <b>${item.name}</b> — ${item.meaning}`;
+    });
+
+    const keyboard = new InlineKeyboard();
+    pageNames.forEach((item: any) => keyboard.row().text(item.name, `name:detail:${item.slug}`));
+
+    // Keyingi tugmasi (agar yana ismlar bo'lsa)
+    if (endIndex < generatedNames.length) {
+      keyboard.row().text('➡️ Keyingi', 'personal:next');
+    }
+
+    keyboard.row().text('🏠 Menyu', 'main');
+
+    const totalPages = Math.ceil(generatedNames.length / NAMES_PER_PAGE);
+    const pageInfo = `\n\n📄 Sahifa ${currentPage + 1}/${totalPages}`;
+
+    await this.safeEditOrReply(
+      ctx,
+      `🎯 Shaxsiy tavsiyalar${pageInfo}\n\n${lines.join('\n')}`,
+      keyboard,
+    );
+  }
 
   private async handleFavoriteCallbacks(ctx: BotContext, parts: string[]): Promise<void> {
     const action = parts[0];
@@ -486,10 +530,14 @@ export class BotService {
     // Previously this function enforced ensurePaidAccess; that check was removed
     // so free users can get name meanings immediately.
     await ctx.replyWithChatAction('typing');
-    const { record, meaning, error } = await this.insightsService.getRichNameMeaning(name);
+
+    const telegramId = ctx.from?.id;
+    const username = ctx.from?.username || ctx.from?.first_name;
+
+    const { record, meaning, error } = await this.insightsService.getRichNameMeaning(name, telegramId, username);
 
     if (!meaning && error) {
-      await ctx.reply(`❌ ${error}`);
+      await ctx.reply(`❌ ${error}`, { parse_mode: 'HTML' });
       return;
     }
 
@@ -509,7 +557,10 @@ export class BotService {
     // 🚀 API dan to'liq ma'lumot olish
     await ctx.replyWithChatAction('typing');
 
-    const { record, meaning, error } = await this.insightsService.getRichNameMeaning(slug);
+    const telegramId = ctx.from?.id;
+    const username = ctx.from?.username || ctx.from?.first_name;
+
+    const { record, meaning, error } = await this.insightsService.getRichNameMeaning(slug, telegramId, username);
 
     // Agar ma'lumot topilmasa, hech narsa ko'rsatmaslik
     if (!meaning && !record) {
@@ -738,17 +789,9 @@ export class BotService {
     switch (flow.step) {
       case 3: {
         if (message.toLowerCase() !== 'skip') {
-          flow.payload.familyName = message;
-        }
-        flow.step = 4;
-        await ctx.reply('👨‍👩‍👦 Ota-ona ismlarini vergul bilan kiriting yoki skip.');
-        return true;
-      }
-      case 4: {
-        if (message.toLowerCase() !== 'skip') {
           flow.payload.parentNames = message.split(',').map((part) => part.trim()).filter(Boolean);
         }
-        flow.step = 5;
+        flow.step = 4;
         await this.finalizePersonalization(ctx);
         return true;
       }
@@ -833,24 +876,40 @@ export class BotService {
     const personaTarget: TargetGender = targetGender === 'boy' || targetGender === 'girl' ? targetGender : 'unknown';
     await this.personaService.upsertProfile(user.id, {
       targetGender: personaTarget,
-      familyName: flow.payload.familyName as string | undefined,
       parentNames: flow.payload.parentNames as string[] | undefined,
       focusValues,
       personaType: personaInfo.code,
     });
 
-    const lines = suggestions.map((item, index) => {
+    // Barcha ismlarni sessionga saqlash
+    ctx.session.generatedNames = suggestions;
+    ctx.session.currentPage = 0;
+
+    // Faqat birinchi 2ta ismni ko'rsatish
+    const NAMES_PER_PAGE = 2;
+    const pageNames = suggestions.slice(0, NAMES_PER_PAGE);
+
+    const lines = pageNames.map((item, index) => {
       const emoji = item.gender === 'girl' ? '👧' : '👦';
       return `${index + 1}. ${emoji} <b>${item.name}</b> — ${item.meaning}`;
     });
 
     const keyboard = new InlineKeyboard();
-    suggestions.forEach((item) => keyboard.row().text(item.name, `name:detail:${item.slug}`));
+    pageNames.forEach((item) => keyboard.row().text(item.name, `name:detail:${item.slug}`));
+
+    // Keyingi tugmasi (agar ko'proq ismlar bo'lsa)
+    if (suggestions.length > NAMES_PER_PAGE) {
+      keyboard.row().text('➡️ Keyingi', 'personal:next');
+    }
+
     keyboard.row().text('🏠 Menyu', 'main');
+
+    const totalPages = Math.ceil(suggestions.length / NAMES_PER_PAGE);
+    const pageInfo = suggestions.length > NAMES_PER_PAGE ? `\n\n📄 Sahifa 1/${totalPages}` : '';
 
     await this.safeEditOrReply(
       ctx,
-      `🎯 Profil: <b>${personaInfo.label}</b>\n${personaInfo.summary}\n\n${lines.join('\n')}`,
+      `🎯 Profil: <b>${personaInfo.label}</b>\n${personaInfo.summary}${pageInfo}\n\n${lines.join('\n')}`,
       keyboard,
     );
 

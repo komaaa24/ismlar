@@ -357,7 +357,7 @@ export class NameInsightsService {
     }).slice(0, limit);
   }
 
-  async getRichNameMeaning(name: string): Promise<{
+  async getRichNameMeaning(name: string, telegramId?: number, username?: string): Promise<{
     record?: NameRecord;
     meaning: string;
     error?: string;
@@ -366,7 +366,7 @@ export class NameInsightsService {
     if (record) {
       return { record, meaning: record.meaning };
     }
-    const meaning = await this.meaningService.getNameMeaning(name);
+    const meaning = await this.meaningService.getNameMeaning(name, telegramId, username);
     if (meaning.meaning) {
       return { meaning: meaning.meaning };
     }
@@ -751,6 +751,11 @@ export class NameInsightsService {
     // PHASE 3: SMART SCORING & RANKING
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    // Ota-ona ismlarini kichik harfda saqlash (filtr uchun)
+    const parentNamesLower = parentNames
+      ? parentNames.map(name => name.trim().toLowerCase()).filter(n => n.length > 0)
+      : [];
+
     const suggestions = NAME_LIBRARY.filter((record) => {
       const matchesGender = !genderFilter || record.gender === genderFilter;
       const matchesPersona = persona.summary
@@ -760,7 +765,10 @@ export class NameInsightsService {
         ? focusTags.some((tag) => record.focusValues.includes(tag))
         : true;
 
-      return matchesGender && matchesPersona && matchesFocus;
+      // Ota-ona ismlarini filtr qilish - farzandga ota-ona ismi berilmaydi!
+      const isNotParentName = !parentNamesLower.includes(record.name.toLowerCase());
+
+      return matchesGender && matchesPersona && matchesFocus && isNotParentName;
     })
       .map((record) => {
         // Base score from trend index

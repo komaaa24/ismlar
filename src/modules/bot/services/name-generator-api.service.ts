@@ -63,6 +63,7 @@ export class NameGeneratorApiService {
      *  - Faqat real ismlar poolidan foydalanadi
      *  - Har bir nom ota-onadan olingan harflar bo'yicha ball oladi
      *  - API ma'nosi tasdiqlangan nomlargina qaytariladi
+     *  - Ota-ona ismlarini natijalardan olib tashlaydi
      */
     async generateNamesByPattern(
         fatherName: string,
@@ -78,9 +79,20 @@ export class NameGeneratorApiService {
 
         const dna = this.buildParentDNA(cleanedFather, cleanedMother);
         const candidates = this.collectCandidates(targetGender);
+
+        // Ota-ona ismlarini kichik harfda saqlash
+        const parentNamesLower = [
+            cleanedFather.toLowerCase(),
+            cleanedMother.toLowerCase()
+        ];
+
         const scored = this.scoreCandidates(candidates, dna)
-            .filter((item) => item.score > 0)
-            .slice(0, 6);
+            .filter((item) => {
+                // Ota-ona ismlarini olib tashlash
+                const nameLower = item.name.toLowerCase();
+                return item.score > 0 && !parentNamesLower.includes(nameLower);
+            })
+            .slice(0, 10); // Ko'proq nomzod olish (2ta emas, 10ta)
 
         const results: GeneratedName[] = [];
 
@@ -91,16 +103,17 @@ export class NameGeneratorApiService {
                 continue;
             }
 
-            const story = this.buildStory(candidate.name, candidate.matches, cleanedFather, cleanedMother, dna);
+            // Faqat API ma'nosini ko'rsatamiz, ota-ona ismlari haqida hikoya yo'q
             results.push({
                 name: candidate.name,
-                meaning: `${apiPayload.meaning}\n\n${story}`,
+                meaning: apiPayload.meaning,
                 origin: apiPayload.origin,
                 gender: candidate.gender,
                 confidence: Math.min(100, candidate.score),
             });
 
-            if (results.length >= 3) {
+            // Ko'proq ism olish (2ta emas 8-10ta)
+            if (results.length >= 8) {
                 break;
             }
         }

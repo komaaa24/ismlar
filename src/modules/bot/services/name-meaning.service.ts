@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import axios from 'axios';
 import logger from '../../../shared/utils/logger';
+import { RequestedNameEntity } from '../../../shared/database/entities';
 
 export interface NameMeaning {
   meaning?: string;
@@ -11,7 +14,12 @@ export interface NameMeaning {
 export class NameMeaningService {
   private readonly apiBaseUrl = 'http://94.158.53.20:8080/names_content.php';
 
-  async getNameMeaning(name: string): Promise<NameMeaning> {
+  constructor(
+    @InjectRepository(RequestedNameEntity)
+    private readonly requestedNameRepository: Repository<RequestedNameEntity>,
+  ) { }
+
+  async getNameMeaning(name: string, telegramId?: number, username?: string): Promise<NameMeaning> {
     try {
       const response = await axios.get(this.apiBaseUrl, {
         params: {
@@ -28,7 +36,9 @@ export class NameMeaningService {
       ) {
         return { meaning: response.data.trim() };
       } else {
-        return { error: "Bu ism haqida ma'lumot topilmadi." };
+        // Ma'lumot topilmadi - saqlash
+        await this.saveRequestedName(name, telegramId, username);
+        return { error: "Bu ism haqida ma'lumot topilmadi.\n\n⏰ Tez orada bu ism ma'lumotlar bazamizga qo'shiladi!" };
       }
     } catch (error) {
       logger.error('Name meaning API error:', error);
@@ -51,5 +61,38 @@ export class NameMeaningService {
 
   formatNameMeaning(name: string, meaning: string): string {
     return `🌟 <b>${name}</b> ismining ma'nosi:\n\n${meaning}\n\nIsmlar manosi botidan foydalanishda davom eting.`;
+  }
+
+  private async saveRequestedName(name: string, telegramId?: number, username?: string): Promise<void> {
+    try {
+      const normalizedName = name.trim().toLowerCase();
+
+      // Ism allaqachon mavjudmi tekshirish
+      const existing = await this.requestedNameRepository.findOne({
+        where: { normalizedName },
+      });
+
+      if (existing) {
+        // Mavjud bo'lsa, faqat counterni oshirish
+        existing.requestCount += 1;
+        existing.lastRequestedBy = telegramId;
+        existing.lastRequestedByUsername = username;
+        await this.requestedNameRepository.save(existing);
+      } else {
+        // Yangi ism qo'shish
+        const newRequest = this.requestedNameRepository.create({
+          name: name.trim(),
+          normalizedName,
+          requestCount: 1,
+          lastRequestedBy: telegramId,
+          lastRequestedByUsername: username,
+          isProcessed: false,
+        });
+        await this.requestedNameRepository.save(newRequest);
+      }
+    } catch (error) {
+      logger.error('Save requested name error:', error);
+      // Xato bo'lsa ham davom ettirish (foydalanuvchiga ta'sir qilmasligi uchun)
+    }
   }
 }

@@ -10,6 +10,7 @@ import {
   TransactionEntity,
   ActivityLogEntity,
   UserPaymentEntity,
+  RequestedNameEntity,
 } from '../../shared/database/entities';
 import { NameMeaningService } from './services/name-meaning.service';
 import { BotCoreService } from './services/bot-core.service';
@@ -30,6 +31,7 @@ import { ActivityTrackerService } from './services/activity-tracker.service';
       TransactionEntity,
       ActivityLogEntity,
       UserPaymentEntity,
+      RequestedNameEntity,
     ]),
     HttpModule,
   ],
