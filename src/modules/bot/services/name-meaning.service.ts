@@ -38,7 +38,7 @@ export class NameMeaningService {
       } else {
         // Ma'lumot topilmadi - saqlash
         await this.saveRequestedName(name, telegramId, username);
-        return { error: "Bu ism haqida ma'lumot topilmadi.\n\n⏰ Tez orada bu ism ma'lumotlar bazamizga qo'shiladi!" };
+        return { error: "❌ Kechirasiz, bu ism haqida ma'lumot ma'lumotlar bazamizda yo'q.\n\n⏰ <b>Tez orada qo'shiladi!</b>\n\nSizning so'rovingiz admin paneliga yuborildi." };
       }
     } catch (error) {
       logger.error('Name meaning API error:', error);

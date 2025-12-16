@@ -67,6 +67,7 @@ export class BotService {
     this.bot.command('funnel', (ctx) => this.adminService.handleAdminCommand(ctx, 'funnel'));
     this.bot.command('users_active', (ctx) => this.adminService.handleAdminCommand(ctx, 'users_active'));
     this.bot.command('daily', (ctx) => this.adminService.handleAdminCommand(ctx, 'daily'));
+    this.bot.command('ismlar', (ctx) => this.adminService.handleAdminCommand(ctx, 'ismlar'));
     this.bot.command('grant', (ctx) => this.adminService.handleAdminCommand(ctx, 'grant'));
     this.bot.command('revoke', (ctx) => this.adminService.handleAdminCommand(ctx, 'revoke'));
     this.bot.command('find', (ctx) => this.adminService.handleAdminCommand(ctx, 'find'));
