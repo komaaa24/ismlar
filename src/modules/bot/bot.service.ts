@@ -17,6 +17,8 @@ import { ActivityType, PaymentStatus } from '../../shared/database/entities';
 import { generatePaymeLink } from '../../shared/generators/payme-link.generator';
 import { generateClickOnetimeLink } from '../../shared/generators/click-onetime-link.generator';
 import { ActivityTrackerService } from './services/activity-tracker.service';
+import { NameCardGeneratorService } from './services/name-card-generator.service';
+import { InputFile } from 'grammy';
 
 type FlowName = 'personalization' | 'quiz';
 
@@ -50,6 +52,7 @@ export class BotService {
     private readonly personaService: UserPersonaService,
     private readonly adminService: AdminService,
     private readonly activityTracker: ActivityTrackerService,
+    private readonly nameCardGenerator: NameCardGeneratorService,
   ) {
     this.quizFlow = this.insightsService.getQuizFlow();
     this.registerHandlers();
@@ -542,11 +545,36 @@ export class BotService {
       return;
     }
 
-    const message = this.insightsService.formatRichMeaning(record?.name ?? name, meaning, record);
-    await ctx.reply(message, {
-      parse_mode: 'HTML',
-      reply_markup: this.buildNameDetailKeyboard(record?.slug ?? name.toLowerCase()),
-    });
+    // Generate creative image card with gender detection
+    try {
+      // Detect gender from record or name
+      let gender: 'boy' | 'girl' | undefined;
+      if (record?.gender === 'boy' || record?.gender === 'girl') {
+        gender = record.gender as 'boy' | 'girl';
+      }
+
+      const imageBuffer = await this.nameCardGenerator.generateNameCard(
+        record?.name ?? name,
+        meaning || '',
+        gender
+      );
+
+      const keyboard = this.buildNameDetailKeyboard(record?.slug ?? name.toLowerCase());
+
+      await ctx.replyWithPhoto(new InputFile(imageBuffer, `${name}.png`), {
+        caption: `<b>${record?.name ?? name}</b>`,
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      });
+    } catch (error) {
+      // Agar rasm generatsiya qilishda xatolik bo'lsa, oddiy matn yuboramiz
+      this.logger.error('Image generation failed:', error);
+      const message = this.insightsService.formatRichMeaning(record?.name ?? name, meaning, record);
+      await ctx.reply(message, {
+        parse_mode: 'HTML',
+        reply_markup: this.buildNameDetailKeyboard(record?.slug ?? name.toLowerCase()),
+      });
+    }
   }
 
   private buildNameDetailKeyboard(slug: string): InlineKeyboard {

@@ -20,6 +20,7 @@ import { UserPersonaService } from './services/user-persona.service';
 import { AdminService } from './services/admin.service';
 import { NameGeneratorApiService } from './services/name-generator-api.service';
 import { ActivityTrackerService } from './services/activity-tracker.service';
+import { NameCardGeneratorService } from './services/name-card-generator.service';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { ActivityTrackerService } from './services/activity-tracker.service';
     AdminService,
     NameGeneratorApiService,
     ActivityTrackerService,
+    NameCardGeneratorService,
   ],
   exports: [BotService],
 })
