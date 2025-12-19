@@ -1538,27 +1538,47 @@ export class BotService {
         return;
       }
 
-      // Faqat birinchi 5ta ismni yuborish
-      const NAMES_TO_SHOW = 5;
-      const topNames = suggestions.slice(0, NAMES_TO_SHOW);
-
-      const lines = topNames.map((item, index) => {
-        const emoji = item.gender === 'girl' ? '👧' : '👦';
-        return `${index + 1}. ${emoji} <b>${item.name}</b> — ${item.meaning}`;
-      });
-
-      const parentInfo = `Ota: <b>${parentNames[0]}</b>, Ona: <b>${parentNames[1]}</b> asosida yaratilgan\n\n`;
-
-      const messageText =
-        `🎉 <b>Tabriklaymiz! Shaxsiy tavsiyalaringiz tayyor!</b>\n\n${parentInfo}${lines.join('\n')}\n\n` +
-        `📊 Jami ${suggestions.length} ta ism tavsiya qilingan.\n\n` +
-        `Ko'proq ismlarni ko'rish uchun "🎯 Shaxsiy tavsiya" tugmasini bosing.`;
-
-      this.logger.log(`sendPendingPersonalization: Sending message to ${telegramId}...`);
-
+      // Birinchi xabar - tabrik
+      const parentInfo = `Ota: <b>${parentNames[0]}</b>, Ona: <b>${parentNames[1]}</b>`;
       await this.bot.api.sendMessage(
         telegramId,
-        messageText,
+        `🎉 <b>Tabriklaymiz! Shaxsiy tavsiyalaringiz tayyor!</b>\n\n${parentInfo} asosida yaratilgan`,
+        { parse_mode: 'HTML' }
+      );
+
+      this.logger.log(`sendPendingPersonalization: Sending ${suggestions.length} name cards to ${telegramId}...`);
+
+      // Har bir ismni kartochka sifatida yuborish (2 tadan)
+      const cardsToSend = suggestions.slice(0, 8); // Maksimal 8ta
+
+      for (let i = 0; i < cardsToSend.length; i += 2) {
+        const batch = cardsToSend.slice(i, i + 2);
+
+        for (const suggestion of batch) {
+          try {
+            const cardBuffer = await this.nameCardGenerator.generateNameCard(
+              suggestion.name,
+              suggestion.meaning,
+              suggestion.gender
+            );
+            await this.bot.api.sendPhoto(telegramId, new InputFile(cardBuffer));
+            this.logger.log(`Sent card: ${suggestion.name}`);
+          } catch (cardErr) {
+            this.logger.error(`Failed to send card for ${suggestion.name}:`, cardErr);
+          }
+        }
+
+        // 2ta kartochka yuborilgandan keyin biroz kutish
+        if (i + 2 < cardsToSend.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      // Oxirida menyu
+      await this.bot.api.sendMessage(
+        telegramId,
+        `📊 Jami ${suggestions.length} ta ism tavsiya qilingan.\n\n` +
+        `Ko'proq ismlarni ko'rish uchun "🎯 Shaxsiy tavsiya" tugmasini bosing.`,
         {
           parse_mode: 'HTML',
           reply_markup: {
