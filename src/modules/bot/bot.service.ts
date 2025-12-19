@@ -884,6 +884,17 @@ export class BotService {
       parentNames,
     };
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 💾 DATABASE'GA SAQLASH (to'lovdan keyin ishlatish uchun)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const personaTarget: TargetGender = targetGender === 'boy' || targetGender === 'girl' ? targetGender : 'unknown';
+    await this.personaService.upsertProfile(user.id, {
+      targetGender: personaTarget,
+      parentNames: parentNames,
+      focusValues,
+      personaType: 'pending_payment', // To'lov kutilmoqda
+    });
+
     // Premium tekshirish
     const hasAccess = this.userHasActiveAccess(user);
 
