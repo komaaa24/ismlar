@@ -1,435 +1,276 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createCanvas, registerFont, Canvas, CanvasRenderingContext2D } from 'canvas';
+import { createCanvas, registerFont, CanvasRenderingContext2D } from 'canvas';
 import * as path from 'path';
-
-// Gender-based color palettes
-interface ColorPalette {
-    primary: string;
-    secondary: string;
-    accent: string;
-    background: string[];
-    textMain: string;
-    textSecondary: string;
-    decorative: string;
-}
-
-interface DesignTheme {
-    palette: ColorPalette;
-    pattern: 'modern' | 'elegant' | 'playful';
-}
 
 @Injectable()
 export class NameCardGeneratorService {
     private readonly logger = new Logger(NameCardGeneratorService.name);
-    private readonly WIDTH = 800;
-    private readonly HEIGHT = 400; // Compact image only
-    private readonly PADDING = 50;
+    private readonly WIDTH = 700;
+    private readonly HEIGHT = 700;
 
     constructor() {
         this.registerFonts();
     }
 
-    /**
-     * Font fayllarini ro'yxatdan o'tkazish
-     */
     private registerFonts(): void {
         try {
             const fontsDir = path.join(process.cwd(), 'assets', 'fonts');
             const boldFont = path.join(fontsDir, 'Roboto-Bold.ttf');
             const regularFont = path.join(fontsDir, 'Roboto-Regular.ttf');
-
-            // Check if files exist
             const fs = require('fs');
             if (fs.existsSync(boldFont) && fs.existsSync(regularFont)) {
-                registerFont(boldFont, {
-                    family: 'Roboto',
-                    weight: 'bold',
-                });
-                registerFont(regularFont, {
-                    family: 'Roboto',
-                    weight: 'normal',
-                });
-                this.logger.log('✅ Custom fonts registered successfully');
-            } else {
-                this.logger.warn('⚠️ Font files not found, using system fonts');
+                try {
+                    registerFont(boldFont, { family: 'Roboto', weight: 'bold' });
+                    registerFont(regularFont, { family: 'Roboto', weight: 'normal' });
+                    this.logger.log('Fonts registered');
+                } catch (err) {
+                    this.logger.warn('Using system fonts');
+                }
             }
         } catch (error) {
-            this.logger.warn('⚠️ Font registration failed, using system fonts:', error.message);
+            this.logger.warn('Font registration failed');
         }
     }
 
-    /**
-     * Gender-based dizayn temalari - kreativ va jozibali ranglar
-     */
-    private getDesignTheme(gender?: 'boy' | 'girl'): DesignTheme {
-        const themes = {
-            boy: {
-                palette: {
-                    primary: '#2563eb', // Chuqur ko'k
-                    secondary: '#3b82f6',
-                    accent: '#1e40af',
-                    background: ['#0f172a', '#1e3a8a', '#2563eb', '#60a5fa', '#dbeafe', '#f0f9ff'],
-                    textMain: '#0f172a',
-                    textSecondary: '#334155',
-                    decorative: 'rgba(37, 99, 235, 0.15)',
-                },
-                pattern: 'modern' as const,
-            },
-            girl: {
-                palette: {
-                    primary: '#db2777', // Yorqin pushti
-                    secondary: '#ec4899',
-                    accent: '#be185d',
-                    background: ['#4a044e', '#831843', '#db2777', '#f472b6', '#fbcfe8', '#fdf2f8'],
-                    textMain: '#1f0c24',
-                    textSecondary: '#4a1d4e',
-                    decorative: 'rgba(219, 39, 119, 0.15)',
-                },
-                pattern: 'elegant' as const,
-            },
-            neutral: {
-                palette: {
-                    primary: '#7c3aed', // Quyuq binafsha
-                    secondary: '#8b5cf6',
-                    accent: '#6d28d9',
-                    background: ['#1e1b4b', '#4c1d95', '#7c3aed', '#a78bfa', '#ddd6fe', '#f5f3ff'],
-                    textMain: '#1e1b4b',
-                    textSecondary: '#4c1d95',
-                    decorative: 'rgba(124, 58, 237, 0.15)',
-                },
-                pattern: 'playful' as const,
-            },
-        };
-
-        return themes[gender || 'neutral'];
-    }
-
-    /**
-     * Ism ma'nosi uchun kreativ navogodniy rasm generatsiya qiladi
-     */
-    async generateNameCard(
-        name: string,
-        meaning: string,
-        gender?: 'boy' | 'girl',
-    ): Promise<Buffer> {
+    async generateNameCard(name: string, meaning: string, gender?: 'boy' | 'girl'): Promise<Buffer> {
         const canvas = createCanvas(this.WIDTH, this.HEIGHT);
         const ctx = canvas.getContext('2d');
-        const theme = this.getDesignTheme(gender);
 
-        // Chiroyli gradient background
-        this.drawCreativeBackground(ctx, theme);
+        // Gradient background - binafsha
+        this.drawGradientBackground(ctx);
 
-        // Yangi yil elementlari - qor, yulduzlar, konfeti
-        this.drawNewYearElements(ctx, theme);
+        // ISM box - yuqorida
+        this.drawNameBox(ctx, name);
 
-        // Geometrik pattern va naqshlar
-        this.drawGeometricPattern(ctx, theme);
+        // Ma'nosi box - pastda
+        this.drawMeaningBox(ctx, meaning);
 
-        // Corner light effects
-        this.drawLightEffects(ctx, theme.palette.accent);
-
-        // Markazda chiroyli doira effect
-        this.drawCenterGlow(ctx, theme);
+        // Bot username - eng pastda
+        this.drawBotUsername(ctx);
 
         return canvas.toBuffer('image/png');
     }
 
-    /**
-     * Kreativ gradient background - ko'p qatlamli va chiroyli
-     */
-    private drawCreativeBackground(ctx: CanvasRenderingContext2D, theme: DesignTheme): void {
-        const { background, primary, secondary } = theme.palette;
+    private drawGradientBackground(ctx: CanvasRenderingContext2D): void {
+        // Yuqorida kumush gradient - skromniy va elegant
+        const gradientHeight = this.HEIGHT * 0.50; // 50% yuqori qism
+        const gradient = ctx.createLinearGradient(0, 0, 0, gradientHeight);
+        gradient.addColorStop(0, '#E5E7EB');    // Ochroq kumush
+        gradient.addColorStop(0.5, '#D1D5DB');  // O'rtacha kumush
+        gradient.addColorStop(1, '#9CA3AF');    // To'q kumush
 
-        // Dark base
-        ctx.fillStyle = background[0];
-        ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, this.WIDTH, gradientHeight);
 
-        // Ko'p markazli radial gradient - 3D effekt
-        const gradients = [
-            { x: this.WIDTH * 0.3, y: this.HEIGHT * 0.3, r: 300, colors: [primary + '60', secondary + '40', 'transparent'] },
-            { x: this.WIDTH * 0.7, y: this.HEIGHT * 0.7, r: 350, colors: [secondary + '50', primary + '30', 'transparent'] },
-            { x: this.WIDTH * 0.5, y: this.HEIGHT * 0.5, r: 250, colors: [background[4] + '80', background[3] + '40', 'transparent'] },
-        ];
+        // Islomiy geometrik naqshlar
+        this.drawIslamicPattern(ctx, gradientHeight);
 
-        gradients.forEach(g => {
-            const gradient = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
-            g.colors.forEach((color, i) => {
-                gradient.addColorStop(i / (g.colors.length - 1), color);
-            });
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
-        });
+        ctx.globalAlpha = 1.0;
 
-        // Diagonal light streaks
-        for (let i = 0; i < 5; i++) {
-            const gradient = ctx.createLinearGradient(
-                i * 200 - 100, 0,
-                i * 200 + 100, this.HEIGHT
-            );
-            gradient.addColorStop(0, 'transparent');
-            gradient.addColorStop(0.5, background[4] + '20');
-            gradient.addColorStop(1, 'transparent');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
-        }
+        // Pastda oq background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, gradientHeight, this.WIDTH, this.HEIGHT - gradientHeight);
+
+        // Rounded corners - butun rasm
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.fillStyle = '#000000';
+        this.roundRect(ctx, 0, 0, this.WIDTH, this.HEIGHT, 25);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
     }
 
-    /**
-     * Yangi yil elementlari - qor, yulduzlar, konfeti
-     */
-    private drawNewYearElements(ctx: CanvasRenderingContext2D, theme: DesignTheme): void {
-        const { accent, primary, secondary } = theme.palette;
-        const random = (seed: number) => (Math.sin(seed * 12.9898 + 78.233) * 43758.5453) % 1;
+    private drawNameBox(ctx: CanvasRenderingContext2D, name: string): void {
+        const centerX = this.WIDTH / 2;
+        const centerY = 160; // Binafsha qismda
 
-        // Qor parchalari - turli o'lchamdagi doiralar
-        for (let i = 0; i < 50; i++) {
-            const x = random(i * 1.5) * this.WIDTH;
-            const y = random(i * 2.3) * this.HEIGHT;
-            const size = random(i * 3.7) * 4 + 2;
-            const opacity = random(i * 5.1) * 0.6 + 0.3;
+        // ISM box - rasmga mos
+        ctx.font = 'bold 70px Arial, sans-serif';
+        const nameMetrics = ctx.measureText(name);
+        const nameWidth = nameMetrics.width;
+        const boxPadding = 50;
+        const boxWidth = Math.min(nameWidth + boxPadding * 2, this.WIDTH - 60);
+        const boxHeight = 100;
+        const boxX = centerX - boxWidth / 2;
+        const boxY = centerY - boxHeight / 2;
 
-            ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-            ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
-            ctx.fill();
+        // Shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.15)';
+        ctx.shadowBlur = 15;
+        ctx.shadowOffsetY = 4;
 
-            // Chiroyli glow effect
-            ctx.shadowColor = '#ffffff';
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.arc(x, y, size - 1, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
+        ctx.fillStyle = '#FFFFFF';
+        this.roundRect(ctx, boxX, boxY, boxWidth, boxHeight, 20);
+        ctx.fill();
+
+        // Reset shadow
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        // Ism matni - to'q kulrang (kumush uchun)
+        ctx.fillStyle = '#374151';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(name, centerX, centerY);
+    }
+
+    private drawBotUsername(ctx: CanvasRenderingContext2D): void {
+        const centerX = this.WIDTH / 2;
+        const y = this.HEIGHT - 50;
+
+        // Username - kulrang
+        ctx.fillStyle = '#9CA3AF';
+        ctx.font = '20px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('@ismlarimizmanolari_bot', centerX, y);
+    }
+
+    private drawMeaningBox(ctx: CanvasRenderingContext2D, meaning: string): void {
+        const centerX = this.WIDTH / 2;
+        const startY = 480; // Oq qismda (50% dan keyin)
+
+        // "📖 Ma'nosi:" label
+        ctx.fillStyle = '#4B5563';
+        ctx.font = 'bold 24px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("📖 Ma'nosi:", centerX, startY);
+
+        // Ma'no matni
+        ctx.font = '24px Arial, sans-serif';
+        const maxWidth = this.WIDTH - 100;
+        const lines = this.wrapText(ctx, meaning, maxWidth);
+        const lineHeight = 35;
+
+        // Matnni ko'rsatish
+        ctx.fillStyle = '#1F2937';
+        ctx.textAlign = 'center';
+
+        lines.forEach((line, index) => {
+            const textY = startY + 45 + (index * lineHeight);
+            ctx.fillText(line, centerX, textY);
+        });
+    }
+
+
+
+    private wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let currentLine = '';
+        for (const word of words) {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            const metrics = ctx.measureText(testLine);
+            if (metrics.width > maxWidth && currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = testLine;
+            }
         }
-
-        // Konfeti - rangli chiziqlar
-        for (let i = 0; i < 30; i++) {
-            const x = random(i * 4.2) * this.WIDTH;
-            const y = random(i * 5.6) * this.HEIGHT;
-            const angle = random(i * 6.8) * Math.PI * 2;
-            const length = random(i * 7.9) * 20 + 10;
-            const colors = [primary, secondary, accent];
-            const color = colors[Math.floor(random(i * 9.3) * colors.length)];
-
-            ctx.strokeStyle = color + '80';
-            ctx.lineWidth = 3;
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length);
-            ctx.stroke();
+        if (currentLine) {
+            lines.push(currentLine);
         }
+        return lines;
+    }
 
-        // Yulduzlar - 5 qirrali
-        for (let i = 0; i < 20; i++) {
-            const x = random(i * 8.1) * this.WIDTH;
-            const y = random(i * 9.4) * this.HEIGHT;
-            const size = random(i * 10.7) * 8 + 5;
-            const rotation = random(i * 11.2) * Math.PI * 2;
+    private drawIslamicPattern(ctx: CanvasRenderingContext2D, height: number): void {
+        ctx.globalAlpha = 0.15;
+
+        // Markazda bitta katta islomiy naqsh
+        const centerX = this.WIDTH / 2;
+        const centerY = height / 2;
+        const size = 200; // Katta naqsh
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+
+        // Kumush ranglar - fonga mos
+        const primaryColor = '#D1A87C'; // Oltin-kumush
+        const secondaryColor = '#9CA3AF'; // Kulrang
+
+        // Asosiy 8 burchakli shakl
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 3;
+
+        // Tashqi oktagon
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+            const angle = (i * Math.PI) / 4;
+            const x = Math.cos(angle) * size;
+            const y = Math.sin(angle) * size;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // 8 ta katta petal (gul barglari)
+        for (let i = 0; i < 8; i++) {
+            const angle = (i * Math.PI) / 4;
 
             ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(rotation);
+            ctx.rotate(angle);
 
-            // Gradient yulduz
-            const starGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, size);
-            starGradient.addColorStop(0, accent);
-            starGradient.addColorStop(1, accent + '40');
-            ctx.fillStyle = starGradient;
-
+            // Katta petal - tashqi qism
             ctx.beginPath();
-            for (let j = 0; j < 5; j++) {
-                const angle = (j * 4 * Math.PI) / 5 - Math.PI / 2;
-                const px = Math.cos(angle) * size;
-                const py = Math.sin(angle) * size;
-                if (j === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
-            }
+            ctx.moveTo(0, -size * 0.3);
+            ctx.quadraticCurveTo(size * 0.4, -size * 0.6, size * 0.3, -size);
+            ctx.quadraticCurveTo(0, -size * 0.8, -size * 0.3, -size);
+            ctx.quadraticCurveTo(-size * 0.4, -size * 0.6, 0, -size * 0.3);
             ctx.closePath();
-            ctx.fill();
+            ctx.stroke();
+
+            // Ichki naqshlar - arabcha yozuv kabi
+            ctx.strokeStyle = secondaryColor;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-size * 0.15, -size * 0.5);
+            ctx.lineTo(size * 0.15, -size * 0.7);
+            ctx.moveTo(size * 0.15, -size * 0.5);
+            ctx.lineTo(-size * 0.15, -size * 0.7);
+            ctx.stroke();
+
+            ctx.strokeStyle = primaryColor;
+            ctx.lineWidth = 3;
 
             ctx.restore();
         }
-    }
 
-    /**
-     * Geometrik pattern - chiroyli naqshlar
-     */
-    private drawGeometricPattern(ctx: CanvasRenderingContext2D, theme: DesignTheme): void {
-        const { decorative, accent, primary } = theme.palette;
-
-        // Doiralar - konsentrik
-        for (let i = 0; i < 8; i++) {
-            const x = (this.WIDTH / 8) * i + 50;
-            const y = this.HEIGHT * 0.3;
-            const radius = 40 + i * 5;
-
-            ctx.strokeStyle = decorative;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        // Pastda ham doiralar
-        for (let i = 0; i < 8; i++) {
-            const x = (this.WIDTH / 8) * i + 50;
-            const y = this.HEIGHT * 0.7;
-            const radius = 35 + i * 4;
-
-            ctx.strokeStyle = decorative;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-
-        // Zig-zag lines - dinamik
-        ctx.strokeStyle = accent + '30';
-        ctx.lineWidth = 3;
+        // Markaziy yulduz
+        ctx.fillStyle = primaryColor;
         ctx.beginPath();
-        for (let x = 0; x < this.WIDTH; x += 40) {
-            const y = this.HEIGHT / 2 + Math.sin(x / 30) * 50;
-            if (x === 0) ctx.moveTo(x, y);
+        for (let i = 0; i < 8; i++) {
+            const angle = (i * Math.PI) / 4;
+            const radius = i % 2 === 0 ? 40 : 20;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+            if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
         }
-        ctx.stroke();
+        ctx.closePath();
+        ctx.fill();
 
-        // Poligonlar - random
-        const random = (seed: number) => (Math.sin(seed * 12.9898) * 43758.5453) % 1;
-        for (let i = 0; i < 10; i++) {
-            const x = random(i * 2.1) * this.WIDTH;
-            const y = random(i * 3.4) * this.HEIGHT;
-            const sides = 5 + Math.floor(random(i * 4.7) * 3);
-            const size = 20 + random(i * 5.3) * 30;
+        // Markaziy doira
+        ctx.fillStyle = secondaryColor;
+        ctx.beginPath();
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fill();
 
-            ctx.strokeStyle = primary + '40';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            for (let j = 0; j < sides; j++) {
-                const angle = (j / sides) * Math.PI * 2;
-                const px = x + Math.cos(angle) * size;
-                const py = y + Math.sin(angle) * size;
-                if (j === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
-            }
-            ctx.closePath();
-            ctx.stroke();
-        }
+        ctx.restore();
     }
 
-    /**
-     * Yorug'lik effektlari - burchaklarda va chekkalarda
-     */
-    private drawLightEffects(ctx: CanvasRenderingContext2D, color: string): void {
-        // Burchaklarda katta glow
-        const corners = [
-            { x: 0, y: 0, r: 180 },
-            { x: this.WIDTH, y: 0, r: 180 },
-            { x: 0, y: this.HEIGHT, r: 150 },
-            { x: this.WIDTH, y: this.HEIGHT, r: 150 },
-        ];
-
-        corners.forEach(corner => {
-            const gradient = ctx.createRadialGradient(corner.x, corner.y, 0, corner.x, corner.y, corner.r);
-            gradient.addColorStop(0, color + '60');
-            gradient.addColorStop(0.3, color + '30');
-            gradient.addColorStop(0.6, color + '10');
-            gradient.addColorStop(1, 'transparent');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
-        });
-
-        // Chekkalarda light rays
-        for (let i = 0; i < 4; i++) {
-            const x = (this.WIDTH / 4) * i + this.WIDTH / 8;
-            const gradient = ctx.createLinearGradient(x - 30, 0, x + 30, this.HEIGHT);
-            gradient.addColorStop(0, color + '20');
-            gradient.addColorStop(0.5, 'transparent');
-            gradient.addColorStop(1, color + '20');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(x - 30, 0, 60, this.HEIGHT);
-        }
-    }
-
-    /**
-     * Markazda chiroyli doira glow effekt
-     */
-    private drawCenterGlow(ctx: CanvasRenderingContext2D, theme: DesignTheme): void {
-        const { primary, secondary, accent } = theme.palette;
-        const centerX = this.WIDTH / 2;
-        const centerY = this.HEIGHT / 2;
-
-        // Katta markaziy glow - 3 qatlam
-        const glows = [
-            { r: 200, color: primary + '40' },
-            { r: 150, color: secondary + '50' },
-            { r: 100, color: accent + '60' },
-        ];
-
-        glows.forEach(glow => {
-            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, glow.r);
-            gradient.addColorStop(0, glow.color);
-            gradient.addColorStop(0.5, glow.color.replace(/[\d.]+\)/, '20)'));
-            gradient.addColorStop(1, 'transparent');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, this.WIDTH, this.HEIGHT);
-        });
-
-        // Pulse rings - aylanuvchi halqalar
-        for (let i = 0; i < 5; i++) {
-            const radius = 80 + i * 25;
-            const gradient = ctx.createRadialGradient(centerX, centerY, radius - 5, centerX, centerY, radius + 5);
-            gradient.addColorStop(0, 'transparent');
-            gradient.addColorStop(0.5, accent + '40');
-            gradient.addColorStop(1, 'transparent');
-
-            ctx.strokeStyle = gradient;
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            ctx.stroke();
-        }
-    }
-
-    private drawCornerAccents(ctx: CanvasRenderingContext2D, color: string): void {
-        // Top left - layered accent
-        const gradient1 = ctx.createRadialGradient(0, 0, 0, 0, 0, 120);
-        gradient1.addColorStop(0, color + '40');
-        gradient1.addColorStop(0.5, color + '20');
-        gradient1.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient1;
+    private roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
         ctx.beginPath();
-        ctx.arc(0, 0, 120, 0, Math.PI / 2);
-        ctx.lineTo(0, 0);
-        ctx.fill();
-
-        // Top right - layered accent
-        const gradient2 = ctx.createRadialGradient(this.WIDTH, 0, 0, this.WIDTH, 0, 120);
-        gradient2.addColorStop(0, color + '40');
-        gradient2.addColorStop(0.5, color + '20');
-        gradient2.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient2;
-        ctx.beginPath();
-        ctx.arc(this.WIDTH, 0, 120, Math.PI / 2, Math.PI);
-        ctx.lineTo(this.WIDTH, 0);
-        ctx.fill();
-
-        // Bottom corners - subtle glow
-        const gradient3 = ctx.createRadialGradient(0, this.HEIGHT, 0, 0, this.HEIGHT, 80);
-        gradient3.addColorStop(0, color + '25');
-        gradient3.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient3;
-        ctx.beginPath();
-        ctx.arc(0, this.HEIGHT, 80, 0, Math.PI * 2);
-        ctx.fill();
-
-        const gradient4 = ctx.createRadialGradient(this.WIDTH, this.HEIGHT, 0, this.WIDTH, this.HEIGHT, 80);
-        gradient4.addColorStop(0, color + '25');
-        gradient4.addColorStop(1, 'transparent');
-        ctx.fillStyle = gradient4;
-        ctx.beginPath();
-        ctx.arc(this.WIDTH, this.HEIGHT, 80, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.arcTo(x + width, y, x + width, y + radius, radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+        ctx.lineTo(x + radius, y + height);
+        ctx.arcTo(x, y + height, x, y + height - radius, radius);
+        ctx.lineTo(x, y + radius);
+        ctx.arcTo(x, y, x + radius, y, radius);
+        ctx.closePath();
     }
 }

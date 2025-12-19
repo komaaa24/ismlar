@@ -11,10 +11,14 @@ import { UserPersonaService } from './services/user-persona.service';
 import { AdminService } from './services/admin.service';
 import { UserEntity } from '../../shared/database/entities/user.entity';
 import { PlanEntity } from '../../shared/database/entities/plan.entity';
+import { UserPaymentEntity } from '../../shared/database/entities/user-payment.entity';
 import { TargetGender } from '../../shared/database/entities/user-persona-profile.entity';
-import { getClickRedirectLink } from '../../shared/generators/click-redirect-link.generator';
+import { ActivityType, PaymentStatus } from '../../shared/database/entities';
 import { generatePaymeLink } from '../../shared/generators/payme-link.generator';
 import { generateClickOnetimeLink } from '../../shared/generators/click-onetime-link.generator';
+import { ActivityTrackerService } from './services/activity-tracker.service';
+import { NameCardGeneratorService } from './services/name-card-generator.service';
+import { InputFile } from 'grammy';
 
 type FlowName = 'personalization' | 'quiz';
 
@@ -24,17 +28,10 @@ interface FlowState {
   payload: Record<string, unknown>;
 }
 
-const PERSONAL_FOCUS_TAGS: Array<{ key: string; label: string; tag: string }> = [
-  { key: 'ramziy', label: 'Ramziy', tag: 'ramziy' },
-  { key: 'rahbar', label: 'Rahbariy', tag: 'rahbar' },
-  { key: 'manaviy', label: "Ma'naviy", tag: "ma'naviy" },
-  { key: 'zamonaviy', label: 'Zamonaviy', tag: 'zamonaviy' },
-  { key: 'tabiat', label: 'Tabiat', tag: 'tabiat' },
-  { key: 'ilhom', label: 'Ilhom', tag: 'ilhom' },
-];
-
 @Injectable()
 export class BotService {
+  // Foydalanuvchi oxirgi so'rovi uchun requested name
+  private requestedNames = new Map<string, string>();
   private readonly logger = new Logger(BotService.name);
   private readonly bot = this.botCoreService.bot;
   private readonly quizFlow: QuizQuestion[];
@@ -45,6 +42,8 @@ export class BotService {
     private readonly userRepository: Repository<UserEntity>,
     @InjectRepository(PlanEntity)
     private readonly planRepository: Repository<PlanEntity>,
+    @InjectRepository(UserPaymentEntity)
+    private readonly userPaymentRepository: Repository<UserPaymentEntity>,
     private readonly nameMeaningService: NameMeaningService,
     @Inject(forwardRef(() => NameInsightsService))
     private readonly insightsService: NameInsightsService,
@@ -52,6 +51,8 @@ export class BotService {
     private readonly favoritesService: UserFavoritesService,
     private readonly personaService: UserPersonaService,
     private readonly adminService: AdminService,
+    private readonly activityTracker: ActivityTrackerService,
+    private readonly nameCardGenerator: NameCardGeneratorService,
   ) {
     this.quizFlow = this.insightsService.getQuizFlow();
     this.registerHandlers();
@@ -65,6 +66,11 @@ export class BotService {
     this.bot.command('start', (ctx) => this.handleStart(ctx));
     this.bot.command('admin', (ctx) => this.handleAdmin(ctx));
     this.bot.command('stats', (ctx) => this.adminService.handleAdminCommand(ctx, 'stats'));
+    this.bot.command('activity', (ctx) => this.adminService.handleAdminCommand(ctx, 'activity'));
+    this.bot.command('funnel', (ctx) => this.adminService.handleAdminCommand(ctx, 'funnel'));
+    this.bot.command('users_active', (ctx) => this.adminService.handleAdminCommand(ctx, 'users_active'));
+    this.bot.command('daily', (ctx) => this.adminService.handleAdminCommand(ctx, 'daily'));
+    this.bot.command('ismlar', (ctx) => this.adminService.handleAdminCommand(ctx, 'ismlar'));
     this.bot.command('grant', (ctx) => this.adminService.handleAdminCommand(ctx, 'grant'));
     this.bot.command('revoke', (ctx) => this.adminService.handleAdminCommand(ctx, 'revoke'));
     this.bot.command('find', (ctx) => this.adminService.handleAdminCommand(ctx, 'find'));
@@ -75,6 +81,16 @@ export class BotService {
 
   private async handleStart(ctx: BotContext): Promise<void> {
     await this.createUserIfNeeded(ctx);
+
+    // Track /start command
+    if (ctx.from?.id) {
+      await this.activityTracker.trackActivity(
+        ctx.from.id,
+        ActivityType.START_COMMAND,
+        { username: ctx.from.username, firstName: ctx.from.first_name }
+      );
+    }
+
     ctx.session.mainMenuMessageId = undefined;
     ctx.session.flow = undefined;
     ctx.session.quizAnswers = undefined;
@@ -105,30 +121,16 @@ export class BotService {
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `🌟 <b>Botimiz imkoniyatlari:</b>\n\n` +
       `🔍 <b>Ism Ma'nosi</b> - Istalgan ismning ma'nosi\n` +
-      `🎯 <b>Shaxsiy Tavsiya</b> - Farzandingizga ism qo'yishga ikkilanyapsizmi?\n` +
-      `📊 <b>Trendlar</b> - Eng mashhur ismlar\n` +
-      `⭐ <b>Sevimlilar</b> - Yoqqan ismlarni saqlash\n\n` +
+      `🎯 <b>Shaxsiy Tavsiya</b> - Farzandingizga ism qo'yishga ikkilanyapsizmi?\n\n` +
       (hasAccess
         ? `✅ <b>Status:</b> VIP foydalanuvchi\n♾️ Barcha imkoniyatlar ochiq!\n\n`
-        : `💡 <b>Status:</b> Oddiy foydalanuvchi\n💳 Bir martalik to'lov - 1,000 so'm\n♾️ Umrbod premium!\n\n`) +
-      `📱 Pastdagi tugmalardan birini bosing yoki ismni yozing! 🚀`;
+        : `💳 Bir martalik to'lov - 9 999 so'm\n🌟 Bir marta to'lov qiling va 1 yillik obunaga ega bo'ling.\n\n`) +
+      `📱 Pastdagi tugmalardan birini bosing yoki ismni yozing! `;
 
-    // 🎹 Professional Reply Keyboard
-    const keyboard = new Keyboard()
-      .text('🔍 Ism Ma\'nosi').text('🎯 Shaxsiy Tavsiya')
-      .row()
-      .text('📊 Trendlar').text('⭐ Sevimlilar')
-      .row();
-
-    if (!hasAccess) {
-      keyboard.text('💳 Premium Obuna');
-    }
-
-    keyboard.resized();
-
+    // 🎹 Professional Reply Keyboard - use common method
     await ctx.reply(welcomeMessage, {
       parse_mode: 'HTML',
-      reply_markup: keyboard,
+      reply_markup: this.getMainKeyboard(hasAccess),
     });
   }
 
@@ -155,6 +157,11 @@ export class BotService {
   }
 
   private async handleCallback(ctx: BotContext): Promise<void> {
+    // Handle Oferta reply keyboard button
+    if (ctx.message && ctx.message.text === '📜 Oferta') {
+      await this.handleOferta(ctx);
+      return;
+    }
     const data = ctx.callbackQuery?.data;
     if (!data) {
       await ctx.answerCallbackQuery();
@@ -182,6 +189,12 @@ export class BotService {
         break;
       case 'trend':
         await this.handleTrendCallbacks(ctx, parts);
+        break;
+      case 'fav':
+        await this.handleFavoriteCallbacks(ctx, parts);
+        break;
+      case 'admin':
+        await this.adminService.handleAdminCallback(ctx, parts[0] || 'panel');
         break;
       case 'main':
         await this.handleStart(ctx);
@@ -221,6 +234,15 @@ export class BotService {
         await this.showTrendMenu(ctx);
         await ctx.answerCallbackQuery();
         break;
+      case 'oferta':
+        if (ctx.from?.id) {
+          await this.activityTracker.trackActivity(ctx.from.id, ActivityType.OFERTA_CLICK);
+        }
+        await ctx.answerCallbackQuery('📜 Oferta');
+        await ctx.reply('<a href="https://telegra.ph/Ismlar-manosi-11-24">📜 Oferta (ommaviy oferta)</a>', {
+          parse_mode: 'HTML',
+        });
+        break;
       default:
         await this.showMainMenu(ctx);
         await ctx.answerCallbackQuery();
@@ -253,31 +275,16 @@ export class BotService {
         flow.payload.targetGender = gender;
         flow.step = 3;
         await ctx.editMessageText(
-          '👪 Familiyangizni kiriting yoki <i>skip</i> deb yozing.',
+          '�‍👩‍👦 Ota-ona ismlarini vergul bilan kiriting yoki <i>skip</i> deb yozing.',
           { parse_mode: 'HTML' },
         );
         await ctx.answerCallbackQuery();
         break;
       }
-      case 'focus': {
-        const key = parts[1];
-        if (key === 'done') {
-          await this.finalizePersonalization(ctx);
-          await ctx.answerCallbackQuery();
-        } else if (key === 'reset') {
-          ctx.session.flow = undefined;
-          await this.startPersonalizationFlow(ctx);
-          await ctx.answerCallbackQuery();
-        } else {
-          const current = (flow.payload.focusValues as string[] | undefined) ?? [];
-          if (current.includes(key)) {
-            flow.payload.focusValues = current.filter((tag) => tag !== key);
-          } else {
-            flow.payload.focusValues = [...current, key];
-          }
-          await this.promptFocusSelection(ctx);
-          await ctx.answerCallbackQuery();
-        }
+      case 'next': {
+        // Keyingi sahifaga o'tish
+        await this.showNextPersonalizedNames(ctx);
+        await ctx.answerCallbackQuery();
         break;
       }
       default:
@@ -285,7 +292,45 @@ export class BotService {
     }
   }
 
+  private async showNextPersonalizedNames(ctx: BotContext): Promise<void> {
+    const generatedNames = ctx.session.generatedNames || [];
+    const currentPage = (ctx.session.currentPage || 0) + 1;
+    ctx.session.currentPage = currentPage;
 
+    const NAMES_PER_PAGE = 2;
+    const startIndex = currentPage * NAMES_PER_PAGE;
+    const endIndex = startIndex + NAMES_PER_PAGE;
+    const pageNames = generatedNames.slice(startIndex, endIndex);
+
+    if (pageNames.length === 0) {
+      await ctx.answerCallbackQuery('Boshqa ismlar yo\'q');
+      return;
+    }
+
+    const lines = pageNames.map((item: any, index: number) => {
+      const emoji = item.gender === 'girl' ? '👧' : '👦';
+      return `${startIndex + index + 1}. ${emoji} <b>${item.name}</b> — ${item.meaning}`;
+    });
+
+    const keyboard = new InlineKeyboard();
+    pageNames.forEach((item: any) => keyboard.row().text(item.name, `name:detail:${item.slug}`));
+
+    // Keyingi tugmasi (agar yana ismlar bo'lsa)
+    if (endIndex < generatedNames.length) {
+      keyboard.row().text('➡️ Keyingi', 'personal:next');
+    }
+
+    keyboard.row().text('🏠 Menyu', 'main');
+
+    const totalPages = Math.ceil(generatedNames.length / NAMES_PER_PAGE);
+    const pageInfo = `\n\n📄 Sahifa ${currentPage + 1}/${totalPages}`;
+
+    await this.safeEditOrReply(
+      ctx,
+      `🎯 Shaxsiy tavsiyalar${pageInfo}\n\n${lines.join('\n')}`,
+      keyboard,
+    );
+  }
 
   private async handleFavoriteCallbacks(ctx: BotContext, parts: string[]): Promise<void> {
     const action = parts[0];
@@ -332,12 +377,19 @@ export class BotService {
       return;
     }
 
+
     // Handle reply keyboard button presses
     switch (text) {
       case '🔍 Ism Ma\'nosi':
+        if (ctx.from?.id) {
+          await this.activityTracker.trackActivity(ctx.from.id, ActivityType.NAME_MEANING_CLICK);
+        }
         await this.promptForName(ctx);
         return;
       case '🎯 Shaxsiy Tavsiya':
+        if (ctx.from?.id) {
+          await this.activityTracker.trackActivity(ctx.from.id, ActivityType.PERSONAL_TAVSIYA_CLICK);
+        }
         // Check premium access
         if (!(await this.ensurePaidAccess(ctx))) {
           return;
@@ -345,6 +397,9 @@ export class BotService {
         await this.startPersonalizationFlow(ctx);
         return;
       case '📊 Trendlar':
+        if (ctx.from?.id) {
+          await this.activityTracker.trackActivity(ctx.from.id, ActivityType.TRENDS_CLICK);
+        }
         // Check premium access
         if (!(await this.ensurePaidAccess(ctx))) {
           return;
@@ -352,10 +407,19 @@ export class BotService {
         await this.showTrendMenu(ctx);
         return;
       case '⭐ Sevimlilar':
+        if (ctx.from?.id) {
+          await this.activityTracker.trackActivity(ctx.from.id, ActivityType.FAVORITES_CLICK);
+        }
         await this.showFavorites(ctx);
         return;
       case '💳 Premium Obuna':
         await this.showOnetimePayment(ctx);
+        return;
+      case '📜 Oferta':
+        if (ctx.from?.id) {
+          await this.activityTracker.trackActivity(ctx.from.id, ActivityType.OFERTA_CLICK);
+        }
+        await ctx.reply('<a href="https://telegra.ph/Ismlar-manosi-11-24">📜 Oferta (ommaviy oferta)</a>', { parse_mode: 'HTML' });
         return;
     }
 
@@ -366,6 +430,10 @@ export class BotService {
     await this.createUserIfNeeded(ctx);
 
     if (this.nameMeaningService.isValidName(text)) {
+      // Track name search
+      if (ctx.from?.id) {
+        await this.activityTracker.trackActivity(ctx.from.id, ActivityType.NAME_SEARCHED, { name: text });
+      }
       await this.processNameMeaning(ctx, text);
     } else {
       await this.showNameInputHelp(ctx, text);
@@ -398,6 +466,8 @@ export class BotService {
       .row()
       .text('📈 Trendlar', 'menu:trends')
       .row()
+      .url('📜 Oferta', 'https://telegra.ph/Ismlar-manosi-11-24')
+      .row()
       .switchInline('🔍 Inline qidiruv', '');
 
     if (!hasAccess) {
@@ -421,9 +491,10 @@ export class BotService {
     let message = `Assalomu alaykum, ${greeting}! 👋\n\n`;
     message += '🌟 Ismlar manosi botiga xush kelibsiz!\n\n';
     message += 'Bu yerda siz ismlarning ma\'nosi, trendlari va shaxsiy tavsiyalarni topasiz.\n\n';
+    const displayedAmount = '9 999 so\'m';
     message += hasAccess
       ? '✅ Premium foydalanuvchisiz — barcha bo\'limlar ochiq.\n\n'
-      : "💳 Bir martalik to'lov qiling va umrbod premiumga ega bo'ling (1 000 so'm).\n\n";
+      : `💳 Bir martalik to'lov qiling va 1 yillik premiumga ega bo'ling (${displayedAmount}).\n\n`;
     message += "Quyidagi bo'limlardan birini tanlang yoki ismni yozing:";
 
     if (initial) {
@@ -449,42 +520,115 @@ export class BotService {
   }
 
   private async processNameMeaning(ctx: BotContext, name: string): Promise<void> {
-    const hasAccess = await this.ensurePaidAccess(ctx, { requestedName: name });
-    if (!hasAccess) {
-      return;
-    }
-
+    // Allow everyone to query name meanings without requiring premium.
+    // Previously this function enforced ensurePaidAccess; that check was removed
+    // so free users can get name meanings immediately.
     await ctx.replyWithChatAction('typing');
-    const { record, meaning, error } = await this.insightsService.getRichNameMeaning(name);
+
+    const telegramId = ctx.from?.id;
+    const username = ctx.from?.username || ctx.from?.first_name;
+
+    const { record, meaning, error } = await this.insightsService.getRichNameMeaning(name, telegramId, username);
+
+    // Get user access status for keyboard
+    let hasAccess = false;
+    if (telegramId) {
+      const user = await this.userRepository.findOne({ where: { telegramId } });
+      hasAccess = this.userHasActiveAccess(user);
+    }
 
     if (!meaning && error) {
-      await ctx.reply(`❌ ${error}`);
+      await ctx.reply(`❌ ${error}`, {
+        parse_mode: 'HTML',
+        reply_markup: this.getMainKeyboard(hasAccess)
+      });
       return;
     }
 
-    const message = this.insightsService.formatRichMeaning(record?.name ?? name, meaning, record);
-    await ctx.reply(message, {
-      parse_mode: 'HTML',
-      reply_markup: this.buildNameDetailKeyboard(record?.slug ?? name.toLowerCase()),
-    });
+    // Generate creative image card with gender detection
+    try {
+      // Detect gender from record or name
+      let gender: 'boy' | 'girl' | undefined;
+      if (record?.gender === 'boy' || record?.gender === 'girl') {
+        gender = record.gender as 'boy' | 'girl';
+      }
+
+      const imageBuffer = await this.nameCardGenerator.generateNameCard(
+        record?.name ?? name,
+        meaning || '',
+        gender
+      );
+
+      const keyboard = this.buildNameDetailKeyboard(record?.slug ?? name.toLowerCase());
+
+      await ctx.replyWithPhoto(new InputFile(imageBuffer, `${name}.png`), {
+        caption: `� <b>Ismingiz Ma'nosiga rasm tayyor</b> 💫`,
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      });
+    } catch (error) {
+      // Agar rasm generatsiya qilishda xatolik bo'lsa, oddiy matn yuboramiz
+      this.logger.error('Image generation failed:', error);
+      const message = this.insightsService.formatRichMeaning(record?.name ?? name, meaning, record);
+      await ctx.reply(message, {
+        parse_mode: 'HTML',
+        reply_markup: this.buildNameDetailKeyboard(record?.slug ?? name.toLowerCase()),
+      });
+    }
   }
 
   private buildNameDetailKeyboard(slug: string): InlineKeyboard {
     return new InlineKeyboard()
-      .text('⭐ Sevimlilarga', `fav:toggle:${slug}`)
-      .row()
-      .text('📈 Trend', `name:trend:${slug}`)
-      .text('🏠 Menyu', 'main');
+      .text('🏠 Menyu', 'main')
+      .text('🎯 Shaxsiy tavsiya', 'menu:personal');
+  }
+
+  // Reply Keyboard generator - doim pastda turadi
+  private getMainKeyboard(hasAccess: boolean = false): Keyboard {
+    const keyboard = new Keyboard();
+    keyboard.text('🔍 Ism Ma\'nosi').text('🎯 Shaxsiy Tavsiya').row();
+
+    if (!hasAccess) {
+      keyboard.text('💳 Premium Obuna');
+    }
+
+    keyboard.resized().persistent();
+    return keyboard;
   }
 
   private async showNameDetail(ctx: BotContext, slug: string): Promise<void> {
-    const record = this.insightsService.findRecordByName(slug);
-    if (!record) {
-      await ctx.answerCallbackQuery('Ma\'lumot topilmadi');
+    // 🚀 API dan to'liq ma'lumot olish
+    await ctx.replyWithChatAction('typing');
+
+    const telegramId = ctx.from?.id;
+    const username = ctx.from?.username || ctx.from?.first_name;
+
+    const { record, meaning, error } = await this.insightsService.getRichNameMeaning(slug, telegramId, username);
+
+    // Agar ma'lumot topilmasa, hech narsa ko'rsatmaslik
+    if (!meaning && !record) {
+      await ctx.answerCallbackQuery('Ma\'lumot yuklanmoqda...');
+
+      // Ismni to'g'ridan-to'g'ri qidirish (slug dan ism olish)
+      const nameFromSlug = slug.charAt(0).toUpperCase() + slug.slice(1);
+      await this.processNameMeaning(ctx, nameFromSlug);
       return;
     }
-    const message = this.insightsService.formatRichMeaning(record.name, record.meaning, record);
-    await this.safeEditOrReply(ctx, message, this.buildNameDetailKeyboard(record.slug));
+
+    // Ma'lumot bor - har doim bir xil format
+    const displayName = record?.name || (slug.charAt(0).toUpperCase() + slug.slice(1));
+    let message = this.insightsService.formatRichMeaning(
+      displayName,
+      meaning,
+      record
+    );
+    message += '\n\n🔁 Yana boshqa ismni sinab ko\'ring.';
+
+    await ctx.reply(message, {
+      parse_mode: 'HTML',
+      reply_markup: this.buildNameDetailKeyboard(slug),
+    });
+
     await ctx.answerCallbackQuery();
   }
 
@@ -518,9 +662,36 @@ export class BotService {
       return true;
     }
 
+    if (!user) {
+      await ctx.reply('/start buyrug\'ini yuboring');
+      return false;
+    }
+
+    const plan = await this.planRepository.findOne({ where: { name: 'Basic' } });
+    if (!plan) {
+      await ctx.reply('Reja topilmadi');
+      return false;
+    }
+
+    const amount = Number(plan.price ?? 0) || 9999;
+    const formattedAmount = amount.toLocaleString('ru-RU');
+
+    // Generate secure payment links with tokens
+    const paymeLink = generatePaymeLink({
+      amount,
+      planId: plan.id,
+      userId: user.id,
+    });
+
+    const clickLink = generateClickOnetimeLink(user.id, plan.id, amount, {
+      planCode: plan.selectedName ?? plan.name ?? plan.id,
+    });
+
     const keyboard = new InlineKeyboard()
-      .text('� Payme', 'onetime|payme')
-      .text('🟢 Click', 'onetime|click')
+      .url('💳 Payme', paymeLink)
+      .url('💳 Click', clickLink)
+      .row()
+      .url('📜 Oferta', 'https://telegra.ph/Ismlar-manosi-11-24')
       .row()
       .text('🏠 Menyu', 'main');
 
@@ -532,15 +703,16 @@ export class BotService {
         .join(' ')
       : undefined;
 
+    // Oxirgi requested name ni saqlash
+    if (normalizedName && telegramId) {
+      this.requestedNames.set(String(telegramId), normalizedName);
+    }
+
     const introMessage = displayName
-      ? `🔒 <b>${displayName}</b> ismining ma'nosini bilish uchun premium sotib oling.\n\n`
+      ? `🔒 <b>${displayName}</b> ismini ma'nosini bilish uchun premium sotib oling.\n\n`
       : "🔒 Ushbu bo'limdan foydalanish uchun premium talab qilinadi.\n\n";
 
-    const message =
-      introMessage +
-      "� <b>Premium:</b> 1 000 so'm\n" +
-      "♾️ <b>Muddati:</b> Butun umrga obuna bo'ling\n\n" +
-      "Quyidagi to'lov usulini tanlang:";
+    const message = introMessage + `1 yil muddatga atigi 9999 so'm\n\nQuyidagi to'lov usulini tanlang:`;
 
     await ctx.reply(message, { reply_markup: keyboard, parse_mode: 'HTML' });
     return false;
@@ -617,14 +789,14 @@ export class BotService {
   }
 
   private ensurePersonalizationSession(ctx: BotContext): FlowState {
-    if (!ctx.session.flow || (ctx.session.flow as FlowState).name !== 'personalization') {
+    if (!ctx.session.flow || (ctx.session.flow as unknown as FlowState).name !== 'personalization') {
       ctx.session.flow = {
         name: 'personalization',
         step: 1,
         payload: { focusValues: [] },
       };
     }
-    return ctx.session.flow as FlowState;
+    return ctx.session.flow as unknown as FlowState;
   }
 
   private async startPersonalizationFlow(ctx: BotContext): Promise<void> {
@@ -632,8 +804,6 @@ export class BotService {
     const keyboard = new InlineKeyboard()
       .text('👧 Qiz bolaga', 'personal:gender:girl')
       .text("👦 O'g'il bolaga", 'personal:gender:boy')
-      .row()
-      .text('🤍 Aniqlanmagan', 'personal:gender:all')
       .row()
       .text('🏠 Menyu', 'main');
 
@@ -654,7 +824,7 @@ export class BotService {
   }
 
   private async handlePersonalizationMessage(ctx: BotContext, message: string): Promise<boolean> {
-    const flow = ctx.session.flow as FlowState | undefined;
+    const flow = ctx.session.flow as unknown as FlowState | undefined;
     if (!flow || flow.name !== 'personalization') {
       return false;
     }
@@ -662,18 +832,10 @@ export class BotService {
     switch (flow.step) {
       case 3: {
         if (message.toLowerCase() !== 'skip') {
-          flow.payload.familyName = message;
-        }
-        flow.step = 4;
-        await ctx.reply('👨‍👩‍👦 Ota-ona ismlarini vergul bilan kiriting yoki skip.');
-        return true;
-      }
-      case 4: {
-        if (message.toLowerCase() !== 'skip') {
           flow.payload.parentNames = message.split(',').map((part) => part.trim()).filter(Boolean);
         }
-        flow.step = 5;
-        await this.promptFocusSelection(ctx);
+        flow.step = 4;
+        await this.finalizePersonalization(ctx);
         return true;
       }
       default:
@@ -681,47 +843,27 @@ export class BotService {
     }
   }
 
-  private async promptFocusSelection(ctx: BotContext): Promise<void> {
-    const flow = this.ensurePersonalizationSession(ctx);
-    const selected = (flow.payload.focusValues as string[] | undefined) ?? [];
-    const keyboard = new InlineKeyboard();
-    PERSONAL_FOCUS_TAGS.forEach((item, index) => {
-      const prefix = selected.includes(item.tag) ? '✅' : '▫️';
-      keyboard.text(`${prefix} ${item.label}`, `personal:focus:${item.tag}`);
-      if (index % 2 === 1) {
-        keyboard.row();
-      }
-    });
-    keyboard.row().text('✅ Tayyor', 'personal:focus:done');
-    keyboard.text('🔄 Qayta', 'personal:focus:reset');
-    keyboard.row().text('🏠 Menyu', 'main');
-
-    const selectedLine = selected.length
-      ? `Tanlangan qadriyatlar: ${selected.map((tag) => `#${tag}`).join(' ')}`
-      : 'Hozircha tanlov belgilanmagan.';
-
-    await this.safeEditOrReply(
-      ctx,
-      '✨ Qaysi qadriyatlar muhim? Bir nechtasini tanlang:\n\n' + selectedLine,
-      keyboard,
-    );
-  }
-
   private async finalizePersonalization(ctx: BotContext): Promise<void> {
-    const flow = ctx.session.flow as FlowState | undefined;
+    const flow = ctx.session.flow as unknown as FlowState | undefined;
     if (!flow || flow.name !== 'personalization') {
       return;
     }
 
+    const answerIfCallback = async (text?: string): Promise<void> => {
+      if (ctx.callbackQuery) {
+        await ctx.answerCallbackQuery(text);
+      }
+    };
+
     const telegramId = ctx.from?.id;
     if (!telegramId) {
-      await ctx.answerCallbackQuery('Foydalanuvchi aniqlanmadi');
+      await answerIfCallback('Foydalanuvchi aniqlanmadi');
       return;
     }
 
     const user = await this.userRepository.findOne({ where: { telegramId } });
     if (!user) {
-      await ctx.answerCallbackQuery('/start yuboring');
+      await answerIfCallback('/start yuboring');
       return;
     }
 
@@ -777,29 +919,50 @@ export class BotService {
     const personaTarget: TargetGender = targetGender === 'boy' || targetGender === 'girl' ? targetGender : 'unknown';
     await this.personaService.upsertProfile(user.id, {
       targetGender: personaTarget,
-      familyName: flow.payload.familyName as string | undefined,
       parentNames: flow.payload.parentNames as string[] | undefined,
       focusValues,
       personaType: personaInfo.code,
     });
 
-    const lines = suggestions.map((item, index) => {
+    // Barcha ismlarni sessionga saqlash
+    ctx.session.generatedNames = suggestions;
+    ctx.session.currentPage = 0;
+
+    // Faqat birinchi 2ta ismni ko'rsatish
+    const NAMES_PER_PAGE = 2;
+    const pageNames = suggestions.slice(0, NAMES_PER_PAGE);
+
+    const lines = pageNames.map((item, index) => {
       const emoji = item.gender === 'girl' ? '👧' : '👦';
       return `${index + 1}. ${emoji} <b>${item.name}</b> — ${item.meaning}`;
     });
 
     const keyboard = new InlineKeyboard();
-    suggestions.forEach((item) => keyboard.row().text(item.name, `name:detail:${item.slug}`));
+    pageNames.forEach((item) => keyboard.row().text(item.name, `name:detail:${item.slug}`));
+
+    // Keyingi tugmasi (agar ko'proq ismlar bo'lsa)
+    if (suggestions.length > NAMES_PER_PAGE) {
+      keyboard.row().text('➡️ Keyingi', 'personal:next');
+    }
+
     keyboard.row().text('🏠 Menyu', 'main');
+
+    const totalPages = Math.ceil(suggestions.length / NAMES_PER_PAGE);
+    const pageInfo = suggestions.length > NAMES_PER_PAGE ? `\n\n📄 Sahifa 1/${totalPages}` : '';
+
+    // Ota-ona ismlari asosida yaratilgan bo'lsa, qo'shimcha ma'lumot ko'rsatish
+    const parentInfo = (parentNames && parentNames.length >= 2)
+      ? `Ota: <b>${parentNames[0]}</b>, Ona: <b>${parentNames[1]}</b> asosida yaratilgan${pageInfo}\n\n`
+      : `${pageInfo}\n\n`;
 
     await this.safeEditOrReply(
       ctx,
-      `🎯 Profil: <b>${personaInfo.label}</b>\n${personaInfo.summary}\n\n${lines.join('\n')}`,
+      `🎯 Shaxsiy tavsiyalar\n${parentInfo}${lines.join('\n')}`,
       keyboard,
     );
 
     ctx.session.flow = undefined;
-    await ctx.answerCallbackQuery('Shaxsiy tavsiyalar tayyor!');
+    await answerIfCallback('Shaxsiy tavsiyalar tayyor!');
   }
 
   private async startQuiz(ctx: BotContext): Promise<void> {
@@ -828,7 +991,7 @@ export class BotService {
   }
 
   private async processQuizAnswer(ctx: BotContext, questionId: string, value: string): Promise<void> {
-    const flow = ctx.session.flow as FlowState | undefined;
+    const flow = ctx.session.flow as unknown as FlowState | undefined;
     if (!flow || flow.name !== 'quiz') {
       await ctx.answerCallbackQuery();
       return;
@@ -938,86 +1101,69 @@ export class BotService {
 
     const list = await this.favoritesService.listFavorites(user.id, page);
     if (!list.totalItems) {
-      const keyboard = new InlineKeyboard().text('🌟 Ism qidirish', 'name_meaning').text('🏠 Menyu', 'main');
-      await this.safeEditOrReply(
-        ctx,
-        '⭐ Sevimli ismlar topilmadi. Har bir ism kartasida ⭐ tugmasini bosib qo\'shing.',
-        keyboard,
-      );
+      await ctx.reply('⭐ Sevimli ismlar topilmadi. Har bir ism kartasida ⭐ tugmasini bosib qo\'shing.');
       return;
     }
 
     const offset = (list.page - 1) * list.pageSize;
     const lines = list.items.map((item, index) => {
       const emoji = item.gender === 'girl' ? '👧' : item.gender === 'boy' ? '👦' : '✨';
-      return `${offset + index + 1}. ${emoji} <b>${item.name}</b> — ${item.origin ?? ''}`;
+      return `${offset + index + 1}. ${emoji} ${item.name} — ${item.origin ?? ''}`;
     });
 
-    const keyboard = new InlineKeyboard();
-    list.items.forEach((item) => {
-      if (item.slug) {
-        keyboard.row().text(item.name, `name:detail:${item.slug}`);
-      }
-    });
-
-    if (list.totalPages > 1) {
-      const prev = page > 1 ? page - 1 : list.totalPages;
-      const next = page < list.totalPages ? page + 1 : 1;
-      keyboard.row().text('⬅️', `fav:list:${prev}`).text(`${page}/${list.totalPages}`, 'main').text('➡️', `fav:list:${next}`);
-    }
-
-    keyboard.row().text('🏠 Menyu', 'main');
-
-    await this.safeEditOrReply(
-      ctx,
-      `⭐ Sevimlilar (jami ${list.totalItems})\n\n${lines.join('\n')}`,
-      keyboard,
-    );
+    await ctx.reply(`⭐ Sevimlilar (jami ${list.totalItems})\n\n${lines.join('\n')}`);
   }
 
   private async toggleFavorite(ctx: BotContext, slug: string): Promise<void> {
-    const telegramId = ctx.from?.id;
-    if (!telegramId) {
-      await ctx.answerCallbackQuery('Foydalanuvchi aniqlanmadi');
-      return;
-    }
-
-    const user = await this.userRepository.findOne({ where: { telegramId } });
-    if (!user) {
-      await ctx.answerCallbackQuery('/start yuboring');
-      return;
-    }
-
-    try {
-      const result = await this.favoritesService.toggleFavorite(user.id, slug);
-      await ctx.answerCallbackQuery(
-        result === 'added' ? '⭐ Sevimlilarga qo\'shildi' : '🗑 Sevimlilardan olib tashlandi',
-        { show_alert: false } as any,
-      );
-    } catch (error) {
-      this.logger.error('Toggle favorite failed', error as Error);
-      await ctx.answerCallbackQuery('Xatolik yuz berdi');
-    }
+    // Sevimlilar funksiyasi o'chirildi
+    await ctx.answerCallbackQuery('Sevimlilar funksiyasi o\'chirildi');
   }
 
   private async showOnetimePayment(ctx: BotContext): Promise<void> {
-    const plan = await this.planRepository.findOne({ where: { name: 'Basic' } });
-    if (!plan) {
-      await ctx.answerCallbackQuery("Reja topilmadi");
+    const telegramId = ctx.from?.id;
+    if (!telegramId) {
+      await ctx.reply('Foydalanuvchi aniqlanmadi');
       return;
     }
 
+    // Track payment screen opened
+    await this.activityTracker.trackActivity(telegramId, ActivityType.PAYMENT_SCREEN_OPENED);
+
+    const user = await this.userRepository.findOne({ where: { telegramId } });
+    if (!user) {
+      await ctx.reply('/start buyrug\'ini yuboring');
+      return;
+    }
+
+    const plan = await this.planRepository.findOne({ where: { name: 'Basic' } });
+    if (!plan) {
+      await ctx.reply("Reja topilmadi");
+      return;
+    }
+
+
+    const amount = Number(plan.price ?? 0) || 9999;
+    const formattedAmount = amount.toLocaleString('ru-RU');
+
+    const paymeLink = generatePaymeLink({
+      amount,
+      planId: plan.id,
+      userId: user.id,
+    });
+
+    const clickLink = generateClickOnetimeLink(user.id, plan.id, amount, {
+      planCode: plan.selectedName ?? plan.name ?? plan.id,
+    });
+
     const keyboard = new InlineKeyboard()
-      .text('💙 Payme', 'onetime|payme')
-      .text('🟢 Click', 'onetime|click')
+      .url('💳 Payme', paymeLink)
+      .url('💳 Click', clickLink)
+      .row()
+      .url('📜 Oferta', 'https://telegra.ph/Ismlar-manosi-11-24')
       .row()
       .text('🏠 Menyu', 'main');
 
-    await this.safeEditOrReply(
-      ctx,
-      "💰 Premium: 1 000 so'm\n♾️ Muddati: Umrbod\n\nQuyidagi to'lov usulini tanlang:",
-      keyboard,
-    );
+    await ctx.reply(`1 yil muddatga atigi 9999 so'm\n\nQuyidagi to'lov usulini tanlang:`, { reply_markup: keyboard });
   }
 
   private async handleOnetimeProvider(ctx: BotContext, provider: 'click' | 'payme'): Promise<void> {
@@ -1026,6 +1172,11 @@ export class BotService {
       await ctx.answerCallbackQuery('Foydalanuvchi aniqlanmadi');
       return;
     }
+
+    // Track provider click
+    const activityType = provider === 'click' ? ActivityType.CLICK_CLICKED : ActivityType.PAYME_CLICKED;
+    await this.activityTracker.trackActivity(telegramId, activityType);
+
     const user = await this.userRepository.findOne({ where: { telegramId } });
     if (!user) {
       await ctx.answerCallbackQuery('/start yuboring');
@@ -1038,31 +1189,31 @@ export class BotService {
       return;
     }
 
-    const amount = Number(plan.price);
+    const amount = Number(plan.price ?? 0) || 9999;
+    const formattedAmount = amount.toLocaleString('ru-RU');
     const providerTitle = provider === 'click' ? 'Click' : 'Payme';
 
-    let paymentLink: string;
-
-    if (provider === 'click') {
-      // Click onetime to'lov uchun to'g'ri generator
-      paymentLink = generateClickOnetimeLink(user.id, plan.id, amount);
-    } else {
-      // Payme
-      paymentLink = generatePaymeLink({
-        amount,
-        planId: plan.id,
-        userId: user.id,
-      });
-    }
+    const paymentLink =
+      provider === 'click'
+        ? generateClickOnetimeLink(user.id, plan.id, amount, {
+          planCode: plan.selectedName ?? plan.name ?? plan.id,
+        })
+        : generatePaymeLink({
+          amount,
+          planId: plan.id,
+          userId: user.id,
+        });
 
     const keyboard = new InlineKeyboard()
       .url("💳 To'lovga o'tish", paymentLink)
+      .row()
+      .url('📜 Oferta', 'https://telegra.ph/Ismlar-manosi-11-24')
       .row()
       .text('🏠 Menyu', 'main');
 
     await this.safeEditOrReply(
       ctx,
-      `💳 <b>${providerTitle}</b> orqali to'lov\n\nSumma: ${plan.price} so'm\n♾️ Muddati: Umrbod\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
+      `💳 <b>${providerTitle}</b> orqali to'lov\n\n1 yil muddatga atigi 9999 so'm\n\nQuyidagi havola orqali to'lovni tasdiqlang.`,
       keyboard,
     );
     await ctx.answerCallbackQuery();
@@ -1093,6 +1244,14 @@ export class BotService {
     planId: string,
     durationDays: number,
     selectedService?: string,
+    paymentInfo?: {
+      subscriptionId?: string;
+      transactionId?: string;
+      amount?: number;
+      currency?: string;
+      paymentMethod?: string;
+      status?: PaymentStatus;
+    },
   ): Promise<void> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     const plan = await this.planRepository.findOne({ where: { id: planId } });
@@ -1108,24 +1267,95 @@ export class BotService {
     user.subscriptionEnd = end;
     await this.userRepository.save(user);
 
+    // Track successful payment
+    if (user.telegramId) {
+      await this.activityTracker.trackActivity(
+        user.telegramId,
+        ActivityType.PAYMENT_SUCCESS,
+        { planId, amount: plan?.price, provider: selectedService },
+        user.id
+      );
+    }
+
+    // Persist payment in user_payments for auditing
+    try {
+      const subscriptionId = paymentInfo?.subscriptionId ?? planId;
+      if (subscriptionId) {
+        await this.userPaymentRepository.save({
+          userId: user.id,
+          subscriptionId,
+          amount: paymentInfo?.amount ?? Number(plan?.price ?? 0),
+          currency: paymentInfo?.currency ?? 'UZS',
+          paymentMethod: paymentInfo?.paymentMethod ?? selectedService ?? 'unknown',
+          transactionId: paymentInfo?.transactionId,
+          status: paymentInfo?.status ?? PaymentStatus.COMPLETED,
+          paymentDate: new Date(),
+        });
+      } else {
+        this.logger.warn(
+          `handleSubscriptionSuccess: skip saving payment, missing subscriptionId for user ${user.id}`,
+        );
+      }
+    } catch (paymentError) {
+      this.logger.error(
+        `Failed to persist payment for user ${user.id} and plan ${planId}`,
+        paymentError as any,
+      );
+    }
+
     if (!user.telegramId) {
       return;
     }
 
-    const summaryLines = [
-      '🎉 <b>Tabriklaymiz!</b>',
-      '',
-      "✅ To'lov muvaffaqiyatli amalga oshirildi.",
-      selectedService ? `🧾 Xizmat: ${selectedService}` : undefined,
-      '',
-      '🌟 Endi barcha premium funksiyalar ochiq!',
-    ].filter(Boolean);
+    const message =
+      '🎉 <b>Tabriklaymiz!</b>\n\n' +
+      "✅ To'lov muvaffaqiyatli amalga oshirildi.\n\n" +
+      "🌟 Siz 1 yillik obunaga ega bo'ldingiz.\n\n" +
+      "✍️ Istalgan ismni yozing va darhol ma'nosini bilib oling.";
 
-    await this.bot.api.sendMessage(user.telegramId, summaryLines.join('\n'), {
+    await this.bot.api.sendMessage(user.telegramId, message, {
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [[{ text: '🔮 Premium menyuni ochish', callback_data: 'main' }]],
+        inline_keyboard: [[{ text: '🏠 Bosh menyu', callback_data: 'main' }]],
       },
     });
+
+    await this.sendPendingNameMeaning(user.telegramId);
+  }
+
+  /**
+   * Agar foydalanuvchi to'lov oldidan ism kiritgan bo'lsa,
+   * VIP faollashgandan keyin avtomatik ma'no jo'natiladi.
+   */
+  public async sendPendingNameMeaning(telegramId: number): Promise<void> {
+    if (!telegramId) {
+      return;
+    }
+
+    const mapKey = String(telegramId);
+    const requestedName = this.requestedNames.get(mapKey);
+    if (!requestedName) {
+      return;
+    }
+
+    try {
+      const { record, meaning, error } = await this.insightsService.getRichNameMeaning(requestedName);
+      if (!meaning && error) {
+        await this.bot.api.sendMessage(telegramId, `❌ ${error}`);
+        return;
+      }
+
+      const message = this.insightsService.formatRichMeaning(record?.name ?? requestedName, meaning, record);
+      await this.bot.api.sendMessage(telegramId, message, {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[{ text: '🏠 Menyu', callback_data: 'main' }]],
+        },
+      });
+    } catch (err) {
+      this.logger.warn('Requested name meaning auto-send failed', err);
+    } finally {
+      this.requestedNames.delete(mapKey);
+    }
   }
 }
