@@ -15,6 +15,11 @@ interface SessionData {
   quizTags?: string[];
   generatedNames?: any[];
   currentPage?: number;
+  pendingPersonalization?: {
+    targetGender: string;
+    focusValues: string[];
+    parentNames: string[];
+  };
 }
 
 export type BotContext = Context & SessionFlavor<SessionData>;

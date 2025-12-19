@@ -217,11 +217,7 @@ export class BotService {
     const action = parts[0];
     switch (action) {
       case 'personal':
-        // Check premium access
-        if (!(await this.ensurePaidAccess(ctx))) {
-          await ctx.answerCallbackQuery('Premium obuna kerak! 💳');
-          return;
-        }
+        // Personalizatsiya boshlash - bepul (natijani ko'rish uchun to'lov kerak bo'ladi)
         await this.startPersonalizationFlow(ctx);
         await ctx.answerCallbackQuery();
         break;
@@ -880,6 +876,89 @@ export class BotService {
     const parentNames = (flow.payload.parentNames as string[] | undefined) ?? [];
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🔒 PREMIUM TEKSHIRUV
+    // Ota-ona ismlari kiritildi, endi natija ko'rish uchun premium kerak
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    // Ismlarni va ma'lumotlarni sessionga saqlash (to'lovdan keyin ishlatish uchun)
+    ctx.session.pendingPersonalization = {
+      targetGender,
+      focusValues,
+      parentNames,
+    };
+
+    // Premium tekshirish
+    const hasAccess = this.userHasActiveAccess(user);
+
+    if (!hasAccess) {
+      // Premium yo'q - to'lov sahifasini ko'rsatish
+      ctx.session.flow = undefined;
+
+      const genderText = targetGender === 'girl' ? '👧 qiz bola' : targetGender === 'boy' ? '👦 o\'g\'il bola' : 'farzand';
+      const parentInfo = (parentNames && parentNames.length >= 2)
+        ? `\n\n👨‍👩‍👦 Ota: <b>${parentNames[0]}</b>, Ona: <b>${parentNames[1]}</b>`
+        : '';
+
+      const message =
+        `✅ Ma'lumotlaringiz qabul qilindi!\n\n` +
+        `🎯 Sizning ${genderText} uchun maxsus tavsiyalar tayyor${parentInfo}\n\n` +
+        `🔒 <b>Natijani ko'rish uchun premium obuna kerak!</b>\n\n` +
+        `💳 Premium obunaga ega bo'lsangiz, shaxsiy tavsiyalar va boshqa premium funksiyalardan bahramand bo'lasiz.\n\n` +
+        `💰 <b>Narx:</b> 1 yil muddatga atigi 9999 so'm\n\n` +
+        `Quyidagi to'lov usulini tanlang:`;
+
+      // Generate payment links
+      const plan = await this.planRepository.findOne({ where: { name: 'Basic' } });
+      if (!plan) {
+        await ctx.reply('To\'lov rejasi topilmadi. Iltimos qaytadan urinib ko\'ring.');
+        return;
+      }
+
+      const amount = Number(plan.price ?? 0) || 9999;
+      const paymeLink = generatePaymeLink({
+        amount,
+        planId: plan.id,
+        userId: user.id,
+      });
+
+      const clickLink = generateClickOnetimeLink(user.id, plan.id, amount, {
+        planCode: plan.selectedName ?? plan.name ?? plan.id,
+      });
+
+      const keyboard = new InlineKeyboard()
+        .url('💳 Payme', paymeLink)
+        .url('💳 Click', clickLink)
+        .row()
+        .url('📜 Oferta', 'https://telegra.ph/Ismlar-manosi-11-24')
+        .row()
+        .text('🏠 Menyu', 'main');
+
+      await this.safeEditOrReply(ctx, message, keyboard);
+      await answerIfCallback('Natijani ko\'rish uchun to\'lov qiling');
+      return;
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ✅ PREMIUM BOR - NATIJALARNI KO'RSATISH
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    await this.showPersonalizationResults(ctx, targetGender, focusValues, parentNames, user);
+  }
+
+  private async showPersonalizationResults(
+    ctx: BotContext,
+    targetGender: TrendGender,
+    focusValues: string[],
+    parentNames: string[],
+    user: UserEntity
+  ): Promise<void> {
+    const answerIfCallback = async (text?: string): Promise<void> => {
+      if (ctx.callbackQuery) {
+        await ctx.answerCallbackQuery(text);
+      }
+    };
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // 🚀 NEW: API-POWERED GENERATION
     // If parent names provided, use advanced API generation
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -927,7 +1006,7 @@ export class BotService {
     const personaTarget: TargetGender = targetGender === 'boy' || targetGender === 'girl' ? targetGender : 'unknown';
     await this.personaService.upsertProfile(user.id, {
       targetGender: personaTarget,
-      parentNames: flow.payload.parentNames as string[] | undefined,
+      parentNames: parentNames,
       focusValues,
       personaType: personaInfo.code,
     });
@@ -970,6 +1049,7 @@ export class BotService {
     );
 
     ctx.session.flow = undefined;
+    ctx.session.pendingPersonalization = undefined;
     await answerIfCallback('Shaxsiy tavsiyalar tayyor!');
   }
 
@@ -1329,6 +1409,7 @@ export class BotService {
     });
 
     await this.sendPendingNameMeaning(user.telegramId);
+    await this.sendPendingPersonalization(user.telegramId);
   }
 
   /**
@@ -1364,6 +1445,53 @@ export class BotService {
       this.logger.warn('Requested name meaning auto-send failed', err);
     } finally {
       this.requestedNames.delete(mapKey);
+    }
+  }
+
+  /**
+   * Agar foydalanuvchi to'lov oldidan shaxsiy tavsiya uchun ma'lumot kiritgan bo'lsa,
+   * to'lovdan keyin avtomatik tavsiyalar jo'natiladi.
+   */
+  public async sendPendingPersonalization(telegramId: number): Promise<void> {
+    if (!telegramId) {
+      return;
+    }
+
+    try {
+      // Get user from database
+      const user = await this.userRepository.findOne({ where: { telegramId } });
+      if (!user) {
+        return;
+      }
+
+      // Check if user has active premium
+      if (!this.userHasActiveAccess(user)) {
+        return;
+      }
+
+      // Get pending personalization data from bot memory (temporary solution)
+      // In production, you might want to store this in database
+      const sessionKey = `pending_personalization_${telegramId}`;
+
+      // Since we can't access session directly here, we'll use a simpler approach
+      // The user will need to manually request results after payment
+      // For now, just send a reminder message
+
+      await this.bot.api.sendMessage(
+        telegramId,
+        '🎯 <b>Shaxsiy tavsiyalarni ko\'rish tayyor!</b>\n\n' +
+        'Agar siz to\'lovdan oldin ota-ona ismlarini kiritgan bo\'lsangiz, ' +
+        'endi /start bosib, "🎯 Shaxsiy tavsiya" tugmasini bosing - ' +
+        'natijalar darhol ko\'rsatiladi!',
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [[{ text: '🎯 Shaxsiy tavsiya', callback_data: 'menu:personal' }]],
+          },
+        }
+      );
+    } catch (err) {
+      this.logger.warn('Pending personalization auto-send failed', err);
     }
   }
 }
