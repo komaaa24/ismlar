@@ -20,6 +20,10 @@ interface SessionData {
     focusValues: string[];
     parentNames: string[];
   };
+  personalizationResults?: {
+    suggestions: any[];
+    currentIndex: number;
+  };
 }
 
 export type BotContext = Context & SessionFlavor<SessionData>;

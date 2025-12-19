@@ -35,6 +35,7 @@ export class BotService {
   private readonly logger = new Logger(BotService.name);
   private readonly bot = this.botCoreService.bot;
   private readonly quizFlow: QuizQuestion[];
+  private readonly personalizationCache = new Map<number, { suggestions: any[]; currentIndex: number }>();
 
   constructor(
     private readonly botCoreService: BotCoreService,
@@ -157,11 +158,6 @@ export class BotService {
   }
 
   private async handleCallback(ctx: BotContext): Promise<void> {
-    // Handle Oferta reply keyboard button
-    if (ctx.message && ctx.message.text === '📜 Oferta') {
-      await this.handleOferta(ctx);
-      return;
-    }
     const data = ctx.callbackQuery?.data;
     if (!data) {
       await ctx.answerCallbackQuery();
@@ -206,6 +202,10 @@ export class BotService {
         break;
       case 'onetime_payment':
         await this.showOnetimePayment(ctx);
+        await ctx.answerCallbackQuery();
+        break;
+      case 'next_personalized_names':
+        await this.sendNextPersonalizedNames(ctx);
         await ctx.answerCallbackQuery();
         break;
       default:
@@ -1542,57 +1542,120 @@ export class BotService {
       const parentInfo = `Ota: <b>${parentNames[0]}</b>, Ona: <b>${parentNames[1]}</b>`;
       await this.bot.api.sendMessage(
         telegramId,
-        `🎉 <b>Tabriklaymiz! Shaxsiy tavsiyalaringiz tayyor!</b>\n\n${parentInfo} asosida yaratilgan`,
+        `🎉 <b>Tabriklaymiz! Shaxsiy tavsiyalaringiz tayyor!</b>\n\n${parentInfo} asosida yaratilgan\n\n📊 Jami ${suggestions.length} ta ism tavsiya qilingan.`,
         { parse_mode: 'HTML' }
       );
 
-      this.logger.log(`sendPendingPersonalization: Sending ${suggestions.length} name cards to ${telegramId}...`);
+      this.logger.log(`sendPendingPersonalization: Sending first 2 name cards to ${telegramId}...`);
 
-      // Har bir ismni kartochka sifatida yuborish (2 tadan)
-      const cardsToSend = suggestions.slice(0, 8); // Maksimal 8ta
+      // Birinchi 2ta ismni yuborish
+      const firstBatch = suggestions.slice(0, 2);
+      for (const nameData of firstBatch) {
+        try {
+          const cardBuffer = await this.nameCardGenerator.generateNameCard(
+            nameData.name,
+            nameData.meaning,
+            nameData.gender
+          );
 
-      for (let i = 0; i < cardsToSend.length; i += 2) {
-        const batch = cardsToSend.slice(i, i + 2);
-
-        for (const suggestion of batch) {
-          try {
-            const cardBuffer = await this.nameCardGenerator.generateNameCard(
-              suggestion.name,
-              suggestion.meaning,
-              suggestion.gender
-            );
-            await this.bot.api.sendPhoto(telegramId, new InputFile(cardBuffer));
-            this.logger.log(`Sent card: ${suggestion.name}`);
-          } catch (cardErr) {
-            this.logger.error(`Failed to send card for ${suggestion.name}:`, cardErr);
-          }
-        }
-
-        // 2ta kartochka yuborilgandan keyin biroz kutish
-        if (i + 2 < cardsToSend.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await this.bot.api.sendPhoto(telegramId, new InputFile(cardBuffer, `${nameData.name}.png`));
+        } catch (error) {
+          this.logger.error(`Failed to send card for ${nameData.name}:`, error);
         }
       }
 
-      // Oxirida menyu
+      // Natijalarni cache'ga saqlash
+      this.personalizationCache.set(telegramId, {
+        suggestions,
+        currentIndex: 2, // keyingi 2ta ism index 2dan boshlanadi
+      });
+
+      // Keyingi tugmasini ko'rsatish (agar yana ismlar bo'lsa)
+      const hasMore = suggestions.length > 2;
+      const keyboard = hasMore
+        ? [
+          [{ text: '⏭️ Keyingi 2ta ism', callback_data: 'next_personalized_names' }],
+          [{ text: '🎯 Barcha tavsiyalar', callback_data: 'menu:personal' }],
+          [{ text: '🏠 Menyu', callback_data: 'main' }],
+        ]
+        : [
+          [{ text: '🎯 Barcha tavsiyalar', callback_data: 'menu:personal' }],
+          [{ text: '🏠 Menyu', callback_data: 'main' }],
+        ];
+
       await this.bot.api.sendMessage(
         telegramId,
-        `📊 Jami ${suggestions.length} ta ism tavsiya qilingan.\n\n` +
-        `Ko'proq ismlarni ko'rish uchun "🎯 Shaxsiy tavsiya" tugmasini bosing.`,
+        hasMore
+          ? `Ko'proq ismlarni ko'rish uchun pastdagi tugmani bosing 👇`
+          : `Ko'proq ismlarni ko'rish uchun "🎯 Shaxsiy tavsiya" tugmasini bosing.`,
         {
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🎯 Barcha tavsiyalar', callback_data: 'menu:personal' }],
-              [{ text: '🏠 Menyu', callback_data: 'main' }],
-            ],
-          },
+          reply_markup: { inline_keyboard: keyboard },
         }
       );
 
       this.logger.log(`=== sendPendingPersonalization SUCCESS for ${telegramId} ===`);
     } catch (err) {
       this.logger.error('❌ sendPendingPersonalization FAILED:', err);
+    }
+  }
+
+  private async sendNextPersonalizedNames(ctx: BotContext): Promise<void> {
+    try {
+      if (!ctx.from?.id) return;
+
+      const telegramId = ctx.from.id;
+      const results = this.personalizationCache.get(telegramId);
+
+      if (!results || !results.suggestions || results.currentIndex >= results.suggestions.length) {
+        await ctx.reply('❌ Barcha ismlar ko\'rsatildi. Yangi tavsiya olish uchun "🎯 Shaxsiy tavsiya" tugmasini bosing.');
+        return;
+      }
+
+      // Keyingi 2ta ismni olish
+      const nextBatch = results.suggestions.slice(results.currentIndex, results.currentIndex + 2);
+
+      for (const nameData of nextBatch) {
+        try {
+          const cardBuffer = await this.nameCardGenerator.generateNameCard(
+            nameData.name,
+            nameData.meaning,
+            nameData.gender
+          );
+
+          await ctx.replyWithPhoto(new InputFile(cardBuffer, `${nameData.name}.png`));
+        } catch (error) {
+          this.logger.error(`Failed to send card for ${nameData.name}:`, error);
+        }
+      }
+
+      // Index'ni yangilash
+      results.currentIndex += 2;
+      this.personalizationCache.set(telegramId, results);
+
+      // Keyingi tugmasini ko'rsatish (agar yana ismlar bo'lsa)
+      const hasMore = results.currentIndex < results.suggestions.length;
+      const keyboard = hasMore
+        ? [
+          [{ text: '⏭️ Keyingi 2ta ism', callback_data: 'next_personalized_names' }],
+          [{ text: '🎯 Barcha tavsiyalar', callback_data: 'menu:personal' }],
+          [{ text: '🏠 Menyu', callback_data: 'main' }],
+        ]
+        : [
+          [{ text: '🎯 Barcha tavsiyalar', callback_data: 'menu:personal' }],
+          [{ text: '🏠 Menyu', callback_data: 'main' }],
+        ];
+
+      await ctx.reply(
+        hasMore
+          ? `Ko'proq ismlarni ko'rish uchun pastdagi tugmani bosing 👇`
+          : `Barcha tavsiyalar ko'rsatildi! Ko'proq ismlar uchun "🎯 Shaxsiy tavsiya" tugmasini bosing.`,
+        {
+          reply_markup: { inline_keyboard: keyboard },
+        }
+      );
+    } catch (err) {
+      this.logger.error('sendNextPersonalizedNames error:', err);
+      await ctx.reply('❌ Xatolik yuz berdi. Iltimos qaytadan urinib ko\'ring.');
     }
   }
 }
