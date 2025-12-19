@@ -217,7 +217,20 @@ export class BotService {
     const action = parts[0];
     switch (action) {
       case 'personal':
-        // Personalizatsiya boshlash - bepul (natijani ko'rish uchun to'lov kerak bo'ladi)
+        // Agar user premium bo'lsa va profile mavjud bo'lsa, darhol tavsiyalarni ko'rsatish
+        if (ctx.from?.id) {
+          const user = await this.userRepository.findOne({ where: { telegramId: ctx.from.id } });
+          if (user && this.userHasActiveAccess(user)) {
+            const profile = await this.personaService.getProfile(user.id);
+            if (profile && profile.parentNames && profile.parentNames.length >= 2) {
+              // Profile mavjud - darhol tavsiyalarni yuborish
+              await ctx.answerCallbackQuery('📊 Tavsiyalar tayyorlanmoqda...');
+              await this.sendPendingPersonalization(ctx.from.id);
+              return;
+            }
+          }
+        }
+        // Aks holda yangi personalizatsiya flow boshlash
         await this.startPersonalizationFlow(ctx);
         await ctx.answerCallbackQuery();
         break;
