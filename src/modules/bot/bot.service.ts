@@ -271,7 +271,7 @@ export class BotService {
         flow.payload.targetGender = gender;
         flow.step = 3;
         await ctx.editMessageText(
-          '�‍👩‍👦 Ota-ona ismlarini vergul bilan kiriting yoki <i>skip</i> deb yozing.',
+          '👨‍👩‍👦 Ota-ona ismlarini vergul bilan kiriting yoki <i>skip</i> deb yozing.',
           { parse_mode: 'HTML' },
         );
         await ctx.answerCallbackQuery();
@@ -386,10 +386,7 @@ export class BotService {
         if (ctx.from?.id) {
           await this.activityTracker.trackActivity(ctx.from.id, ActivityType.PERSONAL_TAVSIYA_CLICK);
         }
-        // Check premium access
-        if (!(await this.ensurePaidAccess(ctx))) {
-          return;
-        }
+        // Personalizatsiya boshlash - bepul (natijani ko'rish uchun to'lov kerak)
         await this.startPersonalizationFlow(ctx);
         return;
       case '📊 Trendlar':
@@ -902,9 +899,9 @@ export class BotService {
       const message =
         `✅ Ma'lumotlaringiz qabul qilindi!\n\n` +
         `🎯 Sizning ${genderText} uchun maxsus tavsiyalar tayyor${parentInfo}\n\n` +
-        `🔒 <b>Natijani ko'rish uchun premium obuna kerak!</b>\n\n` +
-        `💳 Premium obunaga ega bo'lsangiz, shaxsiy tavsiyalar va boshqa premium funksiyalardan bahramand bo'lasiz.\n\n` +
-        `💰 <b>Narx:</b> 1 yil muddatga atigi 9999 so'm\n\n` +
+        `🔒 <b>Natijani ko'rish uchun bir martalik to'lov kerak!</b>\n\n` +
+        `💳 Bir martalik to'lov qilsangiz, cheksiz shaxsiy tavsiyalar va boshqa premium funksiyalardan bahramand bo'lasiz.\n\n` +
+        `💰 <b>Narx:</b> Atigi 9999 so'm\n\n` +
         `Quyidagi to'lov usulini tanlang:`;
 
       // Generate payment links
