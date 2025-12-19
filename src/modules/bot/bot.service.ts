@@ -1461,7 +1461,10 @@ export class BotService {
    * to'lovdan keyin avtomatik tavsiyalar jo'natiladi.
    */
   public async sendPendingPersonalization(telegramId: number): Promise<void> {
+    this.logger.log(`=== sendPendingPersonalization START for telegramId: ${telegramId} ===`);
+
     if (!telegramId) {
+      this.logger.warn('sendPendingPersonalization: No telegramId');
       return;
     }
 
@@ -1469,19 +1472,26 @@ export class BotService {
       // Get user from database
       const user = await this.userRepository.findOne({ where: { telegramId } });
       if (!user) {
+        this.logger.warn(`sendPendingPersonalization: User not found for telegramId ${telegramId}`);
         return;
       }
+      this.logger.log(`sendPendingPersonalization: User found: ${user.id}`);
 
       // Check if user has active premium
-      if (!this.userHasActiveAccess(user)) {
+      const hasAccess = this.userHasActiveAccess(user);
+      if (!hasAccess) {
+        this.logger.warn(`sendPendingPersonalization: User has no premium`);
         return;
       }
+      this.logger.log(`sendPendingPersonalization: User has premium access`);
 
       // Get user's persona profile from database
       const profile = await this.personaService.getProfile(user.id);
+      this.logger.log(`sendPendingPersonalization: Profile: ${JSON.stringify(profile)}`);
 
       // If no profile or no parent names, skip
       if (!profile || !profile.parentNames || profile.parentNames.length < 2) {
+        this.logger.warn(`sendPendingPersonalization: No valid profile. Profile exists: ${!!profile}, Parent names: ${profile?.parentNames?.length || 0}`);
         return;
       }
 
@@ -1490,22 +1500,28 @@ export class BotService {
       const focusValues = profile.focusValues || [];
       const parentNames = profile.parentNames;
 
+      this.logger.log(`sendPendingPersonalization: Generating for parent names: ${parentNames.join(', ')}, gender: ${targetGender}`);
+
       let suggestions: any[] = [];
 
       if (parentNames && parentNames.length >= 2) {
         try {
+          this.logger.log(`sendPendingPersonalization: Trying API generation`);
           suggestions = await this.insightsService.buildApiGeneratedRecommendations(
             parentNames[0],
             parentNames[1],
             targetGender,
           );
+          this.logger.log(`sendPendingPersonalization: API generated ${suggestions.length} names`);
         } catch (error) {
+          this.logger.warn(`sendPendingPersonalization: API failed, using fallback`);
           const result = this.insightsService.buildPersonalizedRecommendations(
             targetGender,
             focusValues,
             parentNames
           );
           suggestions = result.suggestions;
+          this.logger.log(`sendPendingPersonalization: Fallback generated ${suggestions.length} names`);
         }
       } else {
         const result = this.insightsService.buildPersonalizedRecommendations(
@@ -1514,9 +1530,11 @@ export class BotService {
           parentNames
         );
         suggestions = result.suggestions;
+        this.logger.log(`sendPendingPersonalization: Standard generated ${suggestions.length} names`);
       }
 
       if (!suggestions || suggestions.length === 0) {
+        this.logger.warn(`sendPendingPersonalization: No suggestions generated!`);
         return;
       }
 
@@ -1531,11 +1549,16 @@ export class BotService {
 
       const parentInfo = `Ota: <b>${parentNames[0]}</b>, Ona: <b>${parentNames[1]}</b> asosida yaratilgan\n\n`;
 
+      const messageText =
+        `🎉 <b>Tabriklaymiz! Shaxsiy tavsiyalaringiz tayyor!</b>\n\n${parentInfo}${lines.join('\n')}\n\n` +
+        `📊 Jami ${suggestions.length} ta ism tavsiya qilingan.\n\n` +
+        `Ko'proq ismlarni ko'rish uchun "🎯 Shaxsiy tavsiya" tugmasini bosing.`;
+
+      this.logger.log(`sendPendingPersonalization: Sending message to ${telegramId}...`);
+
       await this.bot.api.sendMessage(
         telegramId,
-        `� <b>Tabriklaymiz! Shaxsiy tavsiyalaringiz tayyor!</b>\n\n${parentInfo}${lines.join('\n')}\n\n` +
-        `📊 Jami ${suggestions.length} ta ism tavsiya qilingan.\n\n` +
-        `Ko'proq ismlarni ko'rish uchun "🎯 Shaxsiy tavsiya" tugmasini bosing.`,
+        messageText,
         {
           parse_mode: 'HTML',
           reply_markup: {
@@ -1546,8 +1569,10 @@ export class BotService {
           },
         }
       );
+
+      this.logger.log(`=== sendPendingPersonalization SUCCESS for ${telegramId} ===`);
     } catch (err) {
-      this.logger.warn('Pending personalization auto-send failed', err);
+      this.logger.error('❌ sendPendingPersonalization FAILED:', err);
     }
   }
 }
